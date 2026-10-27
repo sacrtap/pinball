@@ -1,0 +1,291 @@
+// 「幻想兔」弹珠机预测系统 — Prisma schema
+// 多租户：所有业务表含 tenantId + RLS（见 migrations 末尾手写 SQL）。
+// 常量口径见 lib/rules.ts（HOLE_COUNT=12 等），此处不重复字面量。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- 租户与用户
+
+model Tenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  createdAt DateTime @default(now())
+
+  memberships Membership[]
+  machines    Machine[]
+  sessions    Session[]
+  rounds      Round[]
+  posteriors  Posterior[]
+  simParams   SimParams[]
+  banditArms  BanditArm[]
+  mcSimCache  McSimCache[]
+  auditLogs   AuditLog[]
+  invitations Invitation[]
+}
+
+model User {
+  id                 String    @id @default(uuid()) @db.Uuid
+  email              String    @unique @db.Citext
+  passwordHash       String?
+  rationalReminder   Boolean   @default(true)
+  contributeAnonymous Boolean  @default(true)
+  createdAt          DateTime  @default(now())
+
+  memberships  Membership[]
+  accounts     Account[]
+  sessions     AuthSession[]
+  auditLogs    AuditLog[]
+  invitations  Invitation[] @relation("InvitationInvitee")
+  invitedBy    Invitation[] @relation("InvitationInviter")
+}
+
+model Membership {
+  tenantId String @db.Uuid
+  userId   String @db.Uuid
+  role     String // owner | member
+  contributeAnonymous Boolean @default(true)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, userId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------- 业务表（RLS）
+
+model Machine {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @db.Uuid
+  code          String
+  name          String?
+  venue         String?
+  holeCount     Int      @default(12)
+  holeNumbering String   @default("ltr")
+  createdAt     DateTime @default(now())
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions   Session[]
+  rounds     Round[]
+  posteriors Posterior[]
+  simParams  SimParams[]
+  banditArms BanditArm[]
+  mcSimCache McSimCache[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model Session {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @db.Uuid
+  machineId  String @db.Uuid
+  startedAt  DateTime  @default(now())
+  endedAt    DateTime?
+  status     String    @default("active") // active | closed
+  roundCount Int       @default(0)
+  totalBet   Int       @default(0)
+  totalWin   Int       @default(0)
+  cards      Int       @default(0)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  machine Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  rounds  Round[]
+
+  @@index([tenantId, machineId])
+  @@index([tenantId])
+}
+
+model Round {
+  id               String   @id @default(uuid()) @db.Uuid
+  tenantId         String   @db.Uuid
+  sessionId        String @db.Uuid
+  machineId        String @db.Uuid
+  seq              Int
+  multiplier       Int
+  litHoles         Int[]
+  baseBet          Int
+  extraBet         Int
+  totalBet         Int
+  power            String
+  landHole         Int
+  hit              Boolean
+  reward           Int
+  cardIssued       Int
+  recommendedPower String?
+  recommendMode    String?
+  modelVersion     Int      @default(1)
+  edited           Boolean  @default(false)
+  clientRequestId  String
+  createdAt        DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  machine Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, sessionId, clientRequestId])
+  @@index([tenantId, sessionId])
+  @@index([tenantId, machineId, createdAt])
+  @@index([tenantId])
+}
+
+model Posterior {
+  tenantId  String @db.Uuid
+  machineId String @db.Uuid
+  power     String
+  counts    Int[]
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  machine Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, machineId, power])
+  @@index([tenantId])
+}
+
+model SimParams {
+  tenantId    String   @db.Uuid
+  machineId   String @db.Uuid
+  power       String
+  pegBias     Float
+  entryOffset Float
+  spread      Float
+  fittedAt    DateTime @default(now())
+  sampleN     Int
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  machine Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, machineId, power])
+  @@index([tenantId])
+}
+
+model BanditArm {
+  tenantId  String @db.Uuid
+  machineId String @db.Uuid
+  power     String
+  alpha     Float
+  beta      Float
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  machine Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, machineId, power])
+  @@index([tenantId])
+}
+
+model McSimCache {
+  tenantId    String   @db.Uuid
+  machineId   String @db.Uuid
+  power       String
+  fitVersion  Int
+  dist        Float[]
+  stderr      Float[]
+  computedAt  DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  machine Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, machineId, power, fitVersion])
+  @@index([tenantId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  userId    String?  @db.Uuid
+  action    String
+  detail    Json?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId])
+}
+
+// ---------------------------------------------------------------- 全局与支撑表（无 RLS）
+
+// L4 全局先验：跨租户匿名聚合（machineId 哈希化、无 userId）
+model GlobalPrior {
+  power    String @id
+  counts   Int[]
+  sampleN  Int
+}
+
+// 邮箱 OTP：TTL 10 分钟
+model OtpCode {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @db.Citext
+  code      String
+  expiresAt DateTime
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email, code])
+}
+
+// Auth.js 适配器表（JWT session 策略下 account 仍由 OAuth 落库）
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model AuthSession {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// 团队邀请（M5）
+model Invitation {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @db.Uuid
+  email     String    @db.Citext
+  role      String    @default("member")
+  token     String    @unique
+  invitedBy String?   @db.Uuid
+  acceptedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inviter  User?  @relation("InvitationInviter", fields: [invitedBy], references: [id], onDelete: SetNull)
+  invitee  User?  @relation("InvitationInvitee", fields: [email], references: [email], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([email])
+}
