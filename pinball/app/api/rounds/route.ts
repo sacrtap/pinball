@@ -6,6 +6,8 @@ import { RoundInputSchema } from '@/lib/schemas';
 import { computeCards, computeReward, isHit } from '@/lib/rules';
 import { updatePosterior } from '@/lib/predict/posterior';
 import { updateBanditArm } from '@/lib/predict/bandit';
+import { enqueueMonteCarlo } from '@/lib/queue/redis';
+import { MC_REFIT_THRESHOLDS } from '@/lib/rules';
 
 /**
  * POST /api/rounds：单局录入（幂等事务）。
@@ -57,6 +59,13 @@ export async function POST(request: Request) {
       clientRequestId: input.clientRequestId,
     });
 
+    // 样本跨阈值检测（供 M4 入队）
+    const counts = await tx.posterior.findMany({
+      where: { machineId: input.machineId, power: input.power },
+      select: { counts: true },
+    });
+    const sampleN = counts.reduce((s, p) => s + p.counts.reduce((a, b) => a + b, 0), 0);
+
     // ④ session 冗余统计
     await tx.session.update({
       where: { id: input.sessionId },
@@ -72,10 +81,22 @@ export async function POST(request: Request) {
     await updatePosterior(tx, input.machineId, tenantId, input.power, input.landHole);
     await updateBanditArm(tx, input.machineId, tenantId, input.power, hit);
 
-    return { round: created, deduped: false as const };
+    return { round: created, deduped: false as const, sampleN, modelVersion: created.modelVersion };
   });
 
   // M4：样本跨 30/50/100 阈值时入队重拟合（不阻塞响应）
+  if (!round.deduped) {
+    const prev = round.sampleN - 1;
+    const crossed = MC_REFIT_THRESHOLDS.some((t) => prev < t && round.sampleN >= t);
+    if (crossed) {
+      void enqueueMonteCarlo({
+        tenantId,
+        machineId: input.machineId,
+        power: input.power,
+        fitVersion: round.modelVersion,
+      }).catch(() => {});
+    }
+  }
 
   return NextResponse.json({ round: round.round, deduped: round.deduped }, { status: round.deduped ? 200 : 201 });
 }

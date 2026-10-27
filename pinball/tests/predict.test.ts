@@ -12,6 +12,16 @@ import {
 } from '@/lib/predict/pooling';
 import { POWER_LEVELS, SAMPLE_THRESHOLD, PRIOR_STRENGTH, litCountFor } from '@/lib/rules';
 import { cleanDatabase } from './helpers/db';
+import { simulate, fit, klDivergence, DEFAULT_PARAMS, binomialReference } from '@/lib/predict/montecarlo';
+import {
+  calibration,
+  backtest,
+  regretCurve,
+  chiSquareUniform,
+  logLikelihoodRolling,
+  powerMultiplierMatrix,
+  type RoundLike,
+} from '@/lib/predict/evaluate';
 
 /**
  * M3 算法栈测试：
@@ -190,6 +200,80 @@ describe('predict 算法栈', () => {
     // 不同 seed 不同序列
     const c = mulberry32(hashSeed('machine:1,2,4'));
     expect(Array.from({ length: 10 }, () => c())).not.toEqual(seqA);
+  });
+
+  it('⑦ 蒙特卡洛同 seed 严格相等', () => {
+    const a = simulate(DEFAULT_PARAMS.mid, 'mid', 2000, 'machine:1');
+    const b = simulate(DEFAULT_PARAMS.mid, 'mid', 2000, 'machine:1');
+    expect(a.dist).toEqual(b.dist);
+    expect(a.stderr).toEqual(b.stderr);
+    const c = simulate(DEFAULT_PARAMS.mid, 'mid', 2000, 'machine:2');
+    expect(c.dist).not.toEqual(a.dist);
+    // stderr 量级 ≈ √(p(1-p)/N)
+    const maxP = Math.max(...a.dist);
+    expect(a.stderr[a.dist.indexOf(maxP)]).toBeLessThan(0.05);
+  });
+
+  it('⑧ fit 恢复注入的 pegBias（误差<0.05）', () => {
+    const injected = { pegBias: 0.6, entryOffset: 0.5, spread: 1.05 };
+    // 用注入参数生成 300 个样本
+    const gen = simulate(injected, 'mid', 300, 'gen-seed');
+    const samples = [];
+    for (let rep = 0; rep < 25; rep += 1) {
+      for (let h = 0; h < 12; h += 1) {
+        const count = Math.round(gen.dist[h] * 12);
+        for (let k = 0; k < count; k += 1) samples.push({ landHole: h + 1, power: 'mid' as const });
+      }
+    }
+    const fitted = fit(samples, 'fit-seed');
+    const mid = fitted[1];
+    expect(Math.abs(mid.pegBias - 0.6)).toBeLessThan(0.05);
+  });
+
+  it('⑨ 模拟分布与理论二项 KL<0.05', () => {
+    const params = { pegBias: 0.5, entryOffset: 0, spread: 1 };
+    const sim = simulate(params, 'mid', 10_000, 'kl-seed');
+    const theory = binomialReference(params.pegBias, params.spread, params.entryOffset);
+    expect(klDivergence(sim.dist, theory)).toBeLessThan(0.05);
+  });
+
+  it('⑩ 评估模块：校准/回测/regret/χ²/对数似然/矩阵', () => {
+    const rounds: RoundLike[] = Array.from({ length: 60 }, (_, i) => ({
+      power: POWER_LEVELS[i % 3],
+      multiplier: ([2, 4, 6][i % 3]) as 2 | 4 | 6,
+      hit: i % 2 === 0,
+      totalBet: 5,
+      reward: i % 2 === 0 ? 20 : 0,
+      litHoles: [1, 2, 3, 4, 5],
+      landHole: (i % 12) + 1,
+      recommendedPower: 'high',
+      predictedHitProb: (i % 10) / 10,
+    }));
+
+    const cal = calibration(rounds);
+    expect(cal).toHaveLength(10);
+    expect(cal.reduce((s, b) => s + b.n, 0)).toBe(60);
+
+    const bt = backtest(rounds);
+    expect(bt.n).toBe(60);
+    expect(Number.isFinite(bt.delta)).toBe(true);
+
+    const rc = regretCurve(rounds);
+    expect(rc).toHaveLength(60);
+    expect(rc[59].cumulative).toBeGreaterThanOrEqual(rc[0].cumulative);
+
+    const chi = chiSquareUniform(rounds.map((r) => r.landHole), 12);
+    expect(chi.chi2).toBeGreaterThanOrEqual(0);
+    expect(chi.pValue).toBeGreaterThanOrEqual(0);
+    expect(chi.pValue).toBeLessThanOrEqual(1);
+
+    const ll = logLikelihoodRolling(rounds, null);
+    expect(ll).toHaveLength(60);
+    expect(ll[59].l1).toBeLessThan(0); // 对数似然恒负
+
+    const mtx = powerMultiplierMatrix(rounds);
+    expect(mtx).toHaveLength(15);
+    expect(mtx.every((m) => m.rate >= 0 && m.rate <= 1)).toBe(true);
   });
 
   it('estimate/dirichletMean 数值正确', () => {
