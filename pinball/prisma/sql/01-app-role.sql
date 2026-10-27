@@ -26,3 +26,21 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO pinball_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO pinball_app;
+
+-- L4 全局先验聚合角色：需要跨租户读 Posterior / 写 GlobalPrior，
+-- 普通角色被 RLS 限制在本租户内，因此单独授予 BYPASSRLS 的聚合角色。
+-- 该角色仅供 BullMQ 定时聚合 job 使用，不暴露给任何请求路径。
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pinball_agg') THEN
+    CREATE ROLE pinball_agg LOGIN PASSWORD 'pinball_agg_dev' BYPASSRLS;
+  END IF;
+END
+$$;
+
+GRANT CONNECT ON DATABASE pinball_dev TO pinball_agg;
+GRANT USAGE ON SCHEMA public TO pinball_agg;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO pinball_agg;
+GRANT INSERT, UPDATE ON "GlobalPrior" TO pinball_agg;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT ON TABLES TO pinball_agg;

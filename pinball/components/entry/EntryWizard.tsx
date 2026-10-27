@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEntryStore, type EntryStep } from '@/lib/stores/entry-store';
 import { BASE_BET, LIT_COUNT, SAMPLE_THRESHOLD } from '@/lib/rules';
@@ -9,6 +10,7 @@ import { MultiplierPicker } from './MultiplierPicker';
 import { HoleBoard } from './HoleBoard';
 import { ExtraBetStepper } from './ExtraBetStepper';
 import { PowerPicker } from './PowerPicker';
+import { RecommendSheet, type Recommendation } from './RecommendSheet';
 
 export interface SessionOverview {
   roundCount: number;
@@ -34,6 +36,17 @@ export function EntryWizard({
 }) {
   const store = useEntryStore();
   const router = useRouter();
+  const [showRecommend, setShowRecommend] = useState(true);
+  const recData: Recommendation | null = store.recommendation
+    ? {
+        mode: store.recommendation.degraded ? 'prior' : 'thompson',
+        degraded: store.recommendation.degraded,
+        thompsonPower: store.recommendation.thompsonPower,
+        argmaxPower: store.recommendation.argmaxPower,
+        bestArmProb: store.recommendation.bestArmProb,
+        channelProb: store.recommendation.channelProb,
+      }
+    : null;
   const { step, multiplier, litHoles, extraBet, power, landHole, hit } = store;
 
   const litMax = multiplier ? LIT_COUNT[multiplier] : 0;
@@ -46,7 +59,22 @@ export function EntryWizard({
     (step === 5 && hit !== null);
 
   function next() {
-    if (step < 5 && canNext) store.setStep((step + 1) as EntryStep);
+    if (step < 5 && canNext) {
+      // step②（亮灯）完成 → 拉取发力推荐（≥20 局才有 Thompson；失败静默降级）
+      if (step === 1 && multiplier && !store.recommendation) {
+        void fetch('/api/recommend', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ machineId, multiplier, litHoles }),
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => {
+            if (d?.thompsonPower) store.setRecommendation(d);
+          })
+          .catch(() => {});
+      }
+      store.setStep((step + 1) as EntryStep);
+    }
   }
 
   async function submit() {
@@ -147,11 +175,20 @@ export function EntryWizard({
       {step === 2 && <ExtraBetStepper value={extraBet} onChange={store.setExtraBet} />}
 
       {step === 3 && (
-        <PowerPicker
-          value={power}
-          onChange={store.setPower}
-          recommended={store.recommendation?.thompsonPower ?? null}
-        />
+        <>
+          <PowerPicker
+            value={power}
+            onChange={store.setPower}
+            recommended={store.recommendation?.thompsonPower ?? null}
+          />
+          {showRecommend && (
+            <RecommendSheet
+              data={recData}
+              litHoles={litHoles}
+              onClose={() => setShowRecommend(false)}
+            />
+          )}
+        </>
       )}
 
       {step === 4 && (
