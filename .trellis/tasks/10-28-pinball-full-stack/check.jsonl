@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/10-28-pinball-full-stack/prd.md", "reason": "验收标准：lint/typecheck/test/build 退出码 0、RLS/幂等/注销断言、dev 冒烟链路"}
+{"file": ".trellis/tasks/10-28-pinball-full-stack/design.md", "reason": "核对 withTenant 唯一入口、RLS FORCE、事务边界、算法契约是否被遵守"}
+{"file": ".trellis/tasks/10-28-pinball-full-stack/implement.md", "reason": "逐 M 验收命令与回滚点"}
+{"file": "幻想兔弹珠机预测系统_PLAN.md", "reason": "验收命令与降级项逐条核对"}
