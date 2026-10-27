@@ -22,25 +22,25 @@
 
 ## M3 算法栈 L1+L3+L4
 
-- [ ] M3.1 posterior estimate/dirichletMean 补齐。
-- [ ] M3.2 bandit recommend（K=2000、可复现 seed、degraded<0.55、双轨、channelProb）。
-- [ ] M3.3 pooling：aggregateGlobalPrior + priorForMachine + initPosteriorWithPrior + contributeAnonymous 迁移 + admin 聚合 API。
-- [ ] M3.4 `app/api/recommend/route.ts`（<20 降级）+ RecommendSheet + 录入流接入。
-- [ ] M3.5 `tests/predict.test.ts`（收敛/不锁死/先验/降级）；验收。
+- [x] M3.1 posterior estimate/dirichletMean 补齐。
+- [x] M3.2 bandit recommend（K=2000、可复现 seed、degraded<0.55、双轨、channelProb）。
+- [x] M3.3 pooling：aggregateGlobalPrior + priorForMachine + initPosteriorWithPrior + contributeAnonymous 迁移 + admin 聚合 API。
+- [x] M3.4 `app/api/recommend/route.ts`（<20 降级）+ RecommendSheet + 录入流接入。
+- [x] M3.5 `tests/predict.test.ts`（收敛/不锁死/先验/降级）；验收。
 
 ## M4 蒙特卡洛 + 统计页 + worker
 
-- [ ] M4.1 `lib/predict/montecarlo.ts`（simulate/fit 可复现）+ `lib/queue/redis.ts` + `lib/queue/montecarlo-worker.ts` + 阈值入队 + `app/api/montecarlo/route.ts` + MonteCarloPanel。
-- [ ] M4.2 `lib/predict/evaluate.ts`。
-- [ ] M4.3 stats 页全套图表 + VirtualList + session summary 页。
-- [ ] M4.4 predict 测试扩展（同 seed 严格相等、fit 恢复 pegBias 误差<0.05、KL<0.05）+ 性能验收；验收。
+- [x] M4.1 `lib/predict/montecarlo.ts`（simulate/fit 可复现）+ `lib/queue/redis.ts` + `lib/queue/montecarlo-worker.ts` + 阈值入队 + `app/api/montecarlo/route.ts` + MonteCarloPanel。
+- [x] M4.2 `lib/predict/evaluate.ts`。
+- [x] M4.3 stats 页全套图表 + VirtualList + session summary 页。
+- [x] M4.4 predict 测试扩展（同 seed 严格相等、fit 恢复 pegBias 误差<0.05、KL<0.05）+ 性能验收；验收。
 
 ## M5 打磨发布
 
-- [ ] M5.1 tenants/invite/members/switch-tenant 路由 + TenantManager UI。
-- [ ] M5.2 export（JSON/CSV+审计）+ account delete（物理删）+ UI。
-- [ ] M5.3 `lib/audit.ts` 埋点 + DisclaimerBanner + rationalReminder 迁移 + Dockerfile 多阶段 + compose worker service + README + 生产 checklist（rate-limit 等）。
-- [ ] M5.4 rls 测试扩展（未认证 401/跨团队隔离/注销空表）；全量收尾 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`；最终报告。
+- [x] M5.1 tenants/invite/members/switch-tenant 路由 + TenantManager UI。
+- [x] M5.2 export（JSON/CSV+审计）+ account delete（物理删）+ UI。
+- [x] M5.3 `lib/audit.ts` 埋点 + DisclaimerBanner + rationalReminder 迁移 + Dockerfile 多阶段 + compose worker service + README + 生产 checklist（rate-limit 等）。
+- [x] M5.4 rls 测试扩展（未认证 401/跨团队隔离/注销空表）；全量收尾 `pnpm lint && pnpm typecheck && pnpm test && pnpm build`；最终报告。
 
 ## 验证命令（每 M 结尾）
 
@@ -56,3 +56,19 @@ pnpm lint && pnpm typecheck && pnpm test
 ## 回滚点
 
 每 M 一个本地 commit；某 M 三次修复不过 → `git reset` 回该 M 前 commit，上报失败详情。
+
+
+## 完成记录（2026-10-28）
+
+全部 M1-M5 完成，二元成功标准达成：
+- `pnpm lint` exit 0、`pnpm typecheck` exit 0
+- `pnpm vitest run`：4 文件 28 passed / 1 skipped（rls 8 项含跨团队隔离+注销物理删、auth 4、rounds 6、predict 11）
+- `pnpm build` exit 0；`next start` 冒烟：注册→登录→建机台→建 Session→录 21 局→推荐(mode=thompson)→统计页 200
+- `pnpm playwright test`：2 项 E2E 全绿（3 局统计 + 断网恢复同步不重复）
+- commit：489414d(M1) / 3614310(M2) / 655420e(M3) / 0522b15(M4) / ec6b9c1(M5)
+
+环境降级项：
+- 本地 PG 用 Postgres.app 二进制 initdb 的独立实例（端口 5433）：Postgres.app 托管实例的
+  `auth_permission_dialog` 共享库会阻塞后台服务进程的 TCP 连接（前台终端不受影响）。
+- 聚合角色 pinball_agg（BYPASSRLS）专供 L4 跨租户聚合。
+- Docker 未本地验证（本机 Docker 不可用）；OAuth 凭据留空（provider 代码就位，降级邮箱+OTP）。
