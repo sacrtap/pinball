@@ -6,6 +6,7 @@ import { RoundPatchSchema } from '@/lib/schemas';
 import { computeCards, computeReward, isHit } from '@/lib/rules';
 import { revertPosterior, updatePosterior } from '@/lib/predict/posterior';
 import { revertBanditArm, updateBanditArm } from '@/lib/predict/bandit';
+import { logAudit } from '@/lib/audit';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -83,6 +84,8 @@ export async function PATCH(request: Request, ctx: Ctx) {
       },
     });
 
+    await logAudit(tx, tenantId, null, 'round-edit', { roundId: id });
+
     return updated;
   });
 
@@ -123,6 +126,7 @@ export async function DELETE(_request: Request, ctx: Ctx) {
       },
     });
     await repo.deleteRound(tx, id);
+    await logAudit(tx, tenantId, null, 'round-delete', { roundId: id });
   });
 
   return new NextResponse(null, { status: 204 });

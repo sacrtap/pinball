@@ -5,6 +5,7 @@ import GitHub from 'next-auth/providers/github';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import { prisma } from '@/lib/db/prisma';
 import { verifyPassword } from '@/lib/auth/password';
+import { loginRateLimit } from '@/lib/rate-limit';
 import { getTenantIdForUser } from '@/lib/auth/tenant-resolve';
 import type { Provider } from 'next-auth/providers';
 
@@ -35,10 +36,24 @@ const providers: Provider[] = [
       const password = String(credentials?.password ?? '');
       if (!email || !password) return null;
 
+      // 登录限流（防暴力破解）
+      const rl = await loginRateLimit(email);
+      if (!rl.ok) return null;
+
       const user = await prisma.user.findUnique({ where: { email } });
       // 用户不存在或密码为空（OAuth 账号）→ null
       if (!user?.passwordHash) return null;
       if (!(await verifyPassword(user.passwordHash, password))) return null;
+
+      // 审计登录成功（独立事务，失败不影响登录）
+      const membership = await prisma.membership.findFirst({ where: { userId: user.id } });
+      if (membership) {
+        await prisma.auditLog
+          .create({
+            data: { tenantId: membership.tenantId, userId: user.id, action: 'login' },
+          })
+          .catch(() => {});
+      }
       return { id: user.id, email: user.email };
     },
   }),
@@ -88,10 +103,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session: updateData }) {
       // JWT 经 Record<string, unknown> 索引，扩展字段运行时校验类型
       const raw = token as Record<string, unknown>;
       if (user?.id) raw.userId = user.id;
+      // 租户切换：客户端 update({ tenantId }) 触发
+      if (trigger === 'update') {
+        const next = (updateData as { tenantId?: unknown } | undefined)?.tenantId;
+        if (typeof next === 'string') raw.tenantId = next;
+        return token;
+      }
       // 登录时或 token 尚无 tenantId 时解析并注入
       const userId = typeof raw.userId === 'string' ? raw.userId : user?.id;
       const hasTenant = typeof raw.tenantId === 'string';

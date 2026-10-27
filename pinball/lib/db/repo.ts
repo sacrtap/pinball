@@ -42,6 +42,12 @@ export async function createSession(
   tx: PrismaTransaction,
   data: { tenantId: string; machineId: string },
 ): Promise<Session> {
+  // 外键归属校验：RLS 的 USING 只保护本行，不校验 machineId 指向他租户的机台
+  const machine = await tx.machine.findFirst({
+    where: { id: data.machineId, tenantId: data.tenantId },
+    select: { id: true },
+  });
+  if (!machine) throw new Error('MACHINE_NOT_IN_TENANT');
   return tx.session.create({ data: { ...data, status: 'active' } });
 }
 
@@ -75,6 +81,18 @@ export async function createRound(
   tx: PrismaTransaction,
   data: Record<string, unknown>,
 ): Promise<Round> {
+  // 外键归属校验：session/machine 必须同属本租户（RLS 不校验外键指向）
+  const d = data as { tenantId: string; sessionId: string; machineId: string };
+  const session = await tx.session.findFirst({
+    where: { id: d.sessionId, tenantId: d.tenantId },
+    select: { id: true },
+  });
+  if (!session) throw new Error('SESSION_NOT_IN_TENANT');
+  const machine = await tx.machine.findFirst({
+    where: { id: d.machineId, tenantId: d.tenantId },
+    select: { id: true },
+  });
+  if (!machine) throw new Error('MACHINE_NOT_IN_TENANT');
   return tx.round.create({ data: data as never });
 }
 
