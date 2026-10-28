@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db/prisma';
 import { withTenant } from '@/lib/db/tenant';
 import * as repo from '@/lib/db/repo';
 import { updatePosterior, revertPosterior, estimate, dirichletMean } from '@/lib/predict/posterior';
-import { recommend, mulberry32, hashSeed } from '@/lib/predict/bandit';
+import { recommend, mulberry32, hashSeed, updateBanditArm } from '@/lib/predict/bandit';
 import {
   aggregateGlobalPrior,
   priorDist,
@@ -158,6 +158,49 @@ describe('predict 算法栈', () => {
     // channelProb 是推荐档位的落点分布：亮灯通道概率之和必须等于 litHitProb（命中率口径）
     const litSum = LIT_HOLES_2X.reduce((s, h) => s + (rec.channelProb[h - 1] ?? 0), 0);
     expect(litSum).toBeCloseTo(rec.litHitProb, 5);
+  });
+
+  it('⑦ 去重：三档接近时 banditAlpha 不参与采样，三档均被探索', async () => {
+    // 回归 Thompson 采样去重（bandit.ts 采样改为纯 Beta(litMass, nonLitMass)）。
+    // litMass（Dirichlet 落点派生）与 banditAlpha（Bernoulli 命中计数）描述同一命中事件，
+    // 叠加使等效样本数虚增 ~89%（+banditAB）、Beta 标准差收窄 27%。
+    // 配对实验证实：同数据下叠加版 maxProb 一致高于去重版（delta +0.002~+0.136），
+    // 去重消除了边界场景被推过 0.55 阈值的虚假置信。
+    // 注意：100 局噪声（σ≈0.05）本身可让某档 maxProb > 0.55，属合理 exploit，
+    // 故本测试不断言 degraded，而断言「不锁死」——三档均被采样为最优过。
+    await cleanDatabase();
+    const t = await prisma.tenant.create({ data: { name: '去重租户' } });
+    const m = await withTenant(t.id, (tx) =>
+      repo.createMachine(tx, { tenantId: t.id, code: 'DEDUP-1' }),
+    );
+    const rng = mulberry32(hashSeed('dedup-near-tie'));
+    const nonLit = [6, 7, 8, 9, 10, 11, 12];
+    // 三档真实命中率接近：0.48 / 0.50 / 0.52（差异在统计噪声内）
+    const rates: Record<string, number> = { low: 0.48, mid: 0.5, high: 0.52 };
+
+    await withTenant(t.id, async (tx) => {
+      for (let i = 0; i < 100; i += 1) {
+        for (const power of POWER_LEVELS) {
+          const p = rates[power];
+          const hit = rng() < p;
+          // 命中→落点亮灯内，未命中→落点散在亮灯外
+          const hole = hit
+            ? LIT_HOLES_2X[Math.floor(rng() * LIT_HOLES_2X.length)]
+            : nonLit[Math.floor(rng() * nonLit.length)];
+          await updatePosterior(tx, m.id, t.id, power, hole);
+          await updateBanditArm(tx, m.id, t.id, power, hit);
+        }
+      }
+    });
+
+    const rec = await withTenant(t.id, (tx) => recommend(tx, m.id, t.id, LIT_HOLES_2X));
+    // 数据确实是「三档接近」：点估计 θ 的极差应小于 0.15（真值差 0.04 + 噪声）
+    const thetaSpread = Math.max(...rec.armTheta) - Math.min(...rec.armTheta);
+    expect(thetaSpread).toBeLessThan(0.15);
+    // 去重后不锁死：三档均被 Thompson 采样为最优过（探索保留）
+    expect(rec.bestArmProb.every((p) => p > 0)).toBe(true);
+    // 且 max 不超过 0.95（极端锁死才违反，去重后不应出现）
+    expect(Math.max(...rec.bestArmProb)).toBeLessThan(0.95);
   });
 
   it('⑤ 满 10 局解锁 vs 9 局降级', async () => {

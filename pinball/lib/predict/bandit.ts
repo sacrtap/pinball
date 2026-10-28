@@ -133,7 +133,8 @@ export async function recommend(
         litMass,
         nonLitMass: Math.max(totalMass - litMass, 1e-9),
         theta,
-        // BanditArm 的 α/β 作为先验强度补充（M2 落库的命中计数）
+        // BanditArm 的 α/β（M2 落库的命中计数）仅用于 calibration/backtest 独立校验，
+        // 不参与选档采样——采样用纯 Beta(litMass, nonLitMass)，避免重复计数同一命中事件。
         banditAlpha: bandit?.alpha ?? 0,
         banditBeta: bandit?.beta ?? 0,
       };
@@ -146,9 +147,12 @@ export async function recommend(
 
   for (let k = 0; k < SAMPLE_K; k += 1) {
     const samples = arms.map((arm) => {
-      // L1 后验诱导的 Beta（叠加 BanditArm 命中计数作为额外证据）
-      const alpha = arm.litMass + arm.banditAlpha;
-      const beta = arm.nonLitMass + arm.banditBeta;
+      // L1 Dirichlet 后验诱导的 Beta：命中=落点∈亮灯，litMass/nonLitMass 已完整刻画。
+      // 不再叠加 BanditArm 的 alpha/beta——那是同一命中事件的 Bernoulli 计数，
+      // 叠加会重复计数、虚增等效样本数（+banditAB）、收窄置信宽度，使接近档被误判为显著最优。
+      // BanditArm 表保留落库，供 calibration/backtest 作独立校验信号，不参与选档采样。
+      const alpha = arm.litMass;
+      const beta = arm.nonLitMass;
       return { theta: sampleBeta(rng, alpha, beta), draw: rng() };
     });
     let best = 0;
