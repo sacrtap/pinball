@@ -29,3 +29,25 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 2: 统计页落点热力图与预测链路修复
+<!-- trellis-session: v=2 fp=67836705e8eadd51 -->
+
+**Date**: 2026-10-29
+**Task**: 统计页落点热力图与预测链路修复
+**Branch**: `feat/stats-heatmap-predict-link`
+
+### Summary
+
+落点分布改发力×洞位矩阵热力图；三指标补说明；修复 recommendedPower 与 predictedHitProb 录入链路断裂（回测恒 0 / 校准退化为常数兜底）；spec 回写六环链路契约
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `059be7f33c21514e52599014e706b238c995d748` | feat(stats): 落点分布改发力×洞位热力图并打通推荐回测数据链路 |
+
+### Status
+
+[OK] **Completed**
