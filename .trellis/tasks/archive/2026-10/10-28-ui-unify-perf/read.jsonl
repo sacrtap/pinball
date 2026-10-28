@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "组件统一本质是消除 class 复制粘贴，指南的 Search First / 共享提取规则直接适用"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "E2E 必须覆盖不可用路径、乱序点击、边界恢复——退出登录与删除防重测试需遵守"}
+{"file": "AGENTS.md", "reason": "样式红线：CSS 变量禁硬编码颜色、min-h-12 触控规范、客户端组件约定"}

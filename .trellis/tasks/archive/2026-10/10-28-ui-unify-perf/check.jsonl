@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "检查是否残留复制粘贴 class"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "检查测试是否覆盖边界与不可用路径"}
+{"file": "AGENTS.md", "reason": "合规红线与样式约定核对"}

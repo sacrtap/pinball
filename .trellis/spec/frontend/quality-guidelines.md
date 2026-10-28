@@ -69,6 +69,18 @@ Questions to answer:
 
 另外：断言「选中数量 == 上限」比断言「某几个被选中」更强，能同时抓住多选和漏选。
 
+### E2E 与本地构建的环境陷阱（2026-10-28 实测）
+
+| 症状 | 根因 | 处置 |
+| --- | --- | --- |
+| 页面 500 + 日志 `webpack-runtime.js: TypeError: Cannot read properties of undefined (reading 'call')` | dev server 常驻时并发执行 `next build`，两个进程竞争写 `.next`，产出残缺 chunk | `next.config.ts` 支持 `E2E_BUILD=1` 切独立 `distDir: .next-e2e`；E2E 用 `TEST_BASE_URL` 指向该构建的 `next start`。tsconfig include / eslint ignores / .gitignore 已同步 `.next-e2e` |
+| `pnpm install` 报 `ERR_PNPM_INVALID_WORKSPACE_CONFIGURATION packages field missing or empty` | 本目录 `pnpm-workspace.yaml` 只有 `allowBuilds`（pnpm 10 语义），本机默认 pnpm 8 不认 | 一律 `npx -y pnpm@10 install`；README 已要求 pnpm ≥10 |
+| argon2 编译失败 `'functional' file not found` | macOS CLT 的 libc++ 头被系统更新清空（`SDKs/MacOSX.sdk/usr/include/c++/v1` 残缺、clang 默认搜索路径解析不到） | **优先重装 CLT 根治**：`sudo rm -rf /Library/Developer/CommandLineTools && sudo xcode-select --install`，然后在弹出的 GUI 点 Install + Agree（命令行触发的是 GUI 安装器，会停在许可界面等待点击，无下载活动即卡住；装约需 5-10 分钟，以 `ls /Library/Developer/CommandLineTools/SDKs/` 出现为完成）。重装后 `pnpm rebuild argon2` 直接通过，无需任何手动编译参数。仅当无法重装时才用临时补编：`cd node_modules/.pnpm/argon2@*/node_modules/argon2 && CXX="clang++ -stdlib=libc++ -isystem $(xcrun --show-sdk-path)/usr/include/c++/v1" /usr/local/bin/node-gyp rebuild`（沙箱无外网时 `npx node-gyp` 会 ECONNRESET，须用本地 `/usr/local/bin/node-gyp`） |
+| `pnpm install` 每次因 argon2 install 脚本失败整体回滚（node_modules 被清空） | 同上 | 先按上行重装 CLT；确需绕过时：`pnpm install --ignore-scripts` 装齐依赖，再 `pnpm rebuild argon2` + `npx prisma generate` |
+| 重装 CLT / `install --force` 后 lint 报 `couldn't find the plugin "eslint-plugin-react-hooks"` | node_modules 布局处于中间态：`eslint-config-next` 的传递依赖未提升到顶层 | `npx -y pnpm@10 install --force` 重建依赖布局（约 2.5 分钟，含原生模块编译） |
+
+**规则**：改动 `pnpm-lock.yaml` 必须用 pnpm 10（pnpm 8 会把 lockfileVersion 降级并漂移依赖版本，产生 6000+ 行无关 diff）。
+
 ---
 
 ## Code Review Checklist

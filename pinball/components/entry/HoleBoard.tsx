@@ -1,6 +1,7 @@
 'use client';
 
 import { HOLE_COUNT } from '@/lib/rules';
+import { SELECTABLE_BASE, SELECTABLE_DISABLED, SELECTABLE_IDLE } from '@/components/ui/styles';
 
 /**
  * 12 洞位板。mode='lit' 亮灯选择态（限定 maxSelect 个）；
@@ -50,13 +51,14 @@ export function HoleBoard({
             aria-pressed={selected}
             aria-label={`${isLand ? '落点' : '亮灯'} ${hole} 号洞${disabled ? '（已选满，不可用）' : ''}`}
             className={[
-              'min-h-14 rounded-full border text-lg font-bold transition-transform active:scale-95',
-              disabled && 'cursor-not-allowed opacity-40',
+              'min-h-14 rounded-full text-lg font-bold',
+              SELECTABLE_BASE,
+              disabled && SELECTABLE_DISABLED,
               selected
                 ? isLand
                   ? 'border-transparent bg-[var(--warning)] text-white' // 落点态：橙
                   : 'border-transparent bg-[var(--c1)] text-white' // 亮灯态：靛蓝
-                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]',
+                : `${SELECTABLE_IDLE} text-[var(--muted)]`,
             ].join(' ')}
           >
             {hole}

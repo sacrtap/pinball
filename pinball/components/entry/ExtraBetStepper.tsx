@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { BASE_BET, MAX_EXTRA_BET } from '@/lib/rules';
+import { SELECTABLE_BASE, SELECTABLE_IDLE } from '@/components/ui/styles';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '清空', '0', '删除'];
 
@@ -108,11 +109,12 @@ export function ExtraBetStepper({
             type="button"
             onClick={() => press(k)}
             aria-label={k}
-            className={`min-h-10 rounded-lg border text-lg font-bold active:scale-95 ${
-              k === '清空' || k === '删除'
-                ? 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]'
-                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--fg)]'
-            }`}
+            className={[
+              'min-h-10 rounded-lg text-lg font-bold',
+              SELECTABLE_BASE,
+              SELECTABLE_IDLE,
+              k === '清空' || k === '删除' ? 'text-[var(--muted)]' : '',
+            ].join(' ')}
           >
             {k === '删除' ? '⌫' : k}
           </button>

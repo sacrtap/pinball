@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { TouchButton } from '@/components/ui/TouchButton';
+import { Input } from '@/components/ui/Input';
 
 type Step = 'form' | 'otp' | 'done';
 
@@ -69,23 +70,21 @@ export default function RegisterPage() {
         <form onSubmit={onRegister} className="space-y-3">
           <label className="block space-y-1">
             <span className="text-sm text-[var(--muted)]">邮箱</span>
-            <input
+            <Input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3"
             />
           </label>
           <label className="block space-y-1">
             <span className="text-sm text-[var(--muted)]">密码（≥8 位）</span>
-            <input
+            <Input
               type="password"
               required
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3"
             />
           </label>
           {error && <p className="text-sm text-[var(--error)]">{error}</p>}
@@ -102,13 +101,13 @@ export default function RegisterPage() {
           </p>
           <label className="block space-y-1">
             <span className="text-sm text-[var(--muted)]">6 位验证码</span>
-            <input
+            <Input
               inputMode="numeric"
               required
               maxLength={6}
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-              className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 tracking-[0.5em] text-center"
+              className="tracking-[0.5em] text-center"
             />
           </label>
           {error && <p className="text-sm text-[var(--error)]">{error}</p>}

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { TouchButton } from '@/components/ui/TouchButton';
+import { Input } from '@/components/ui/Input';
 import { HOLE_COUNT } from '@/lib/rules';
 
 export function MachineForm() {
@@ -35,31 +36,28 @@ export function MachineForm() {
     <form onSubmit={onSubmit} className="space-y-3">
       <label className="block space-y-1">
         <span className="text-sm text-[var(--muted)]">机台编号 *</span>
-        <input
+        <Input
           required
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3"
         />
       </label>
       <label className="block space-y-1">
         <span className="text-sm text-[var(--muted)]">名称</span>
-        <input
+        <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3"
         />
       </label>
       <label className="block space-y-1">
         <span className="text-sm text-[var(--muted)]">场所</span>
-        <input
+        <Input
           value={venue}
           onChange={(e) => setVenue(e.target.value)}
-          className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3"
         />
       </label>
       {error && <p className="text-sm text-[var(--error)]">{error}</p>}
-      <TouchButton type="submit" block disabled={loading}>
+      <TouchButton type="submit" block loading={loading}>
         {loading ? '创建中…' : '创建机台'}
       </TouchButton>
     </form>

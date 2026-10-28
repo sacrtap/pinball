@@ -114,6 +114,8 @@ flowchart TD
 - 状态：唯一 zustand store `lib/stores/entry-store.ts`，整体订阅无 selector；`reset()` 故意不清 multiplier（连续录入沿用上局）。
 - 表单：原生 `<form onSubmit>` + `useState` 受控，**无 react-hook-form、客户端不跑 zod**；服务端 400 的 `error` 码翻译成中文提示（`data.error === 'INVALID_INPUT' ? '请检查输入' : …`）。
 - 样式：Tailwind v4 + CSS 变量（`bg-[var(--accent)]`、`text-[var(--muted)]`），**禁硬编码颜色**；移动端控件 `min-h-12`（48px 触控规范）；数字 `tabular-nums`；布局 `mx-auto w-full max-w-md px-4 py-5`。
+- **UI 基元（2026-10-28 起强制）**：按钮一律 `components/ui/TouchButton`（`variant` primary/secondary/ghost/danger × `size` md/sm × `loading` 自动禁用+Loader2）；输入框一律 `components/ui/Input`；卡片容器一律 `components/ui/Card`。**禁止手写重复的按钮/输入/卡片 class**。有自身布局的领域控件（倍率/发力选择、数字键盘、洞位板、`<a>` 链接按钮）引用 `components/ui/styles.ts` 的共享常量（`SELECTABLE_BASE`/`SELECTABLE_IDLE`/`SELECTABLE_ACTIVE`/`LINK_BUTTON`）而非复制 class 字面量。新页面先查基元再动手。
+- 异步交互防重：fetch 进行中必须有 loading/disabled 态（`TouchButton loading` 或 `if (busy) return` 守卫）；删除类操作失败时保持确认态允许重试，不静默吞错。
 - 离线：`navigator.onLine` 直传优先，失败 / 断网入 `lib/offline/outbox.ts`（localStorage 队列），`clientRequestId = crypto.randomUUID()` 保证幂等；`EntrySync` 挂载时自动 flush。
 - 亮灯选满后**只预取** `/api/recommend`，不要加自动前进 effect（曾因 effect 弹回上一步出过回归，见 `tests/e2e/entry-flow.spec.ts:109`）。
 

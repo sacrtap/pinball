@@ -188,3 +188,19 @@ export function powerMultiplierMatrix(
   }
   return out;
 }
+
+/**
+ * 累计净盈亏曲线（单遍前缀和，O(n)）。
+ *
+ * 数值语义与旧实现（slice(0, i+1).reduce((s, x) => s + x.reward - x.totalBet, 0)）
+ * 逐点严格相等：每步必须是「acc 先加 reward 再减 totalBet」——写成
+ * `acc += reward - totalBet` 会先算括号内再累加，浮点下与旧实现不等
+ * （实测 96.19 vs 96.19000000000001）。保持中间步骤一致，仅省掉重复累加。
+ */
+export function pnlTrend(rounds: RoundLike[]): { round: number; pnl: number }[] {
+  let acc = 0;
+  return rounds.map((r, i) => {
+    acc = acc + r.reward - r.totalBet;
+    return { round: i + 1, pnl: acc };
+  });
+}
