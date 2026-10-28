@@ -160,14 +160,7 @@ export function EntryWizard({
           <HoleBoard
             mode="lit"
             value={litHoles}
-            onChange={(holes) => {
-              const last = holes[holes.length - 1];
-              if (last !== undefined && !litHoles.includes(last)) store.toggleLitHole(last, litMax);
-              else if (litHoles.length > holes.length) {
-                const removed = litHoles.find((h) => !holes.includes(h));
-                if (removed !== undefined) store.toggleLitHole(removed, litMax);
-              }
-            }}
+            onChange={(hole) => store.toggleLitHole(hole, litMax)}
             maxSelect={litMax}
           />
         </>
@@ -195,7 +188,7 @@ export function EntryWizard({
       {step === 4 && (
         <>
           <p className="text-sm text-[var(--muted)]">选择本局落点</p>
-          <HoleBoard mode="land" value={landHole !== null ? [landHole] : []} onChange={(h) => store.setLandHole(h[0])} />
+          <HoleBoard mode="land" value={landHole !== null ? [landHole] : []} onChange={(h) => store.setLandHole(h)} />
         </>
       )}
 

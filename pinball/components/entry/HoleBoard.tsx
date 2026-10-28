@@ -5,6 +5,9 @@ import { HOLE_COUNT } from '@/lib/rules';
 /**
  * 12 洞位板。mode='lit' 亮灯选择态（限定 maxSelect 个）；
  * mode='land' 落点态（单选，视觉区别于亮灯）。
+ *
+ * onChange 上报 hole：用户本次点击的洞位。**不要**让调用方从 holes
+ * 数组反推用户点了哪个——数组经排序，最后一个元素未必是点击目标。
  */
 export function HoleBoard({
   mode,
@@ -14,7 +17,7 @@ export function HoleBoard({
 }: {
   mode: 'lit' | 'land';
   value: number[];
-  onChange: (holes: number[]) => void;
+  onChange: (hole: number) => void;
   maxSelect?: number;
 }) {
   const holes = Array.from({ length: HOLE_COUNT }, (_, i) => i + 1);
@@ -24,16 +27,12 @@ export function HoleBoard({
 
   function onClick(hole: number) {
     if (isLand) {
-      onChange([hole]);
+      onChange(hole);
       return;
     }
-    const has = value.includes(hole);
-    if (has) {
-      onChange(value.filter((h) => h !== hole));
-      return;
-    }
-    if (atLimit) return;
-    onChange([...value, hole].sort((a, b) => a - b));
+    // 亮灯态：已选中的洞位始终上报（用于取消）；未选中且已满则忽略
+    if (atLimit && !value.includes(hole)) return;
+    onChange(hole);
   }
 
   return (
