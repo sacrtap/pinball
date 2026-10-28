@@ -134,7 +134,11 @@ compose 包含 5 个服务：
 cd pinball/pinball
 pnpm install
 cp .env.example .env          # 见下方「环境变量」
+```
 
+> **原生模块 `argon2`**：`pnpm install` 时会自动编译。若切换过 Node 大版本，需按「环境前置条件」的说明重编，否则启动报 `No native build was found`。
+
+```bash
 # 建库 + 应用连接角色（RLS 硬性要求：非 superuser、非 BYPASSRLS）
 psql -U postgres -c "CREATE ROLE pinball_app LOGIN PASSWORD 'pinball_app_dev' NOSUPERUSER NOBYPASSRLS;"
 psql -U postgres -c "CREATE ROLE pinball_agg LOGIN PASSWORD 'pinball_agg_dev' BYPASSRLS;"
@@ -153,6 +157,8 @@ pnpm dev                      # http://localhost:8477
 
 > **为什么必须用非 superuser 连接？**
 > RLS 的 `FORCE ROW LEVEL SECURITY` 对表属主也生效，但 **superuser 与 `BYPASSRLS` 角色会完全绕过 RLS**。若用超级用户连接，`tests/rls.test.ts` 的「连接角色无 BYPASSRLS 属性」断言会失败——这正是隔离生效的证明。
+>
+> **`pnpm build` 的 bullmq 警告可忽略**：`Module not found: Can't resolve '@valkey/valkey-glide'`。bullmq 6 将 Valkey Glide 客户端列为可选依赖，本项目走 ioredis，不使用该路径，构建与服务均正常。
 
 ---
 
@@ -166,13 +172,32 @@ pnpm dev                      # http://localhost:8477
 | --- | --- | --- |
 | Node.js | ≥ 20（开发用 24） | `node -v` |
 | pnpm | ≥ 8 | `pnpm -v` |
-| PostgreSQL | ≥ 16 | `pg_isready` |
+| PostgreSQL | ≥ 16 | `pg_isready -p 5432` |
 | Redis | ≥ 7 | `redis-cli ping` |
+| 构建工具链 | Xcode CLT / build-essential | `xcode-select -p` / `cc --version` |
 
 ```bash
 # 一次性确认（应全部通过）
-node -v && pnpm -v && pg_isready && redis-cli ping
+node -v && pnpm -v && pg_isready -p 5432 && redis-cli ping
 ```
+
+> **Node 大版本切换必须重编 argon2**：`argon2` 是原生模块，按 Node ABI 编译，Node 24（ABI 137）与 Node 25（ABI 141）的产物**不通用**。切换 Node 大版本后首次 `pnpm install` 若报 `No native build was found for ... abi=NNN`，需手动重编：
+>
+> ```bash
+> cd node_modules/.pnpm/argon2@0.45.1/node_modules/argon2
+> npx node-gyp rebuild
+> ```
+>
+> 若编译报 C++ 标准库头文件缺失（如 `'functional' file not found`），说明 Xcode CLT 的 `/usr/include/c++/v1/` 不完整。先用 SDK 内的完整头文件路径编译：
+>
+> ```bash
+> cd node_modules/.pnpm/argon2@0.45.1/node_modules/argon2
+> SDK=$(xcrun --show-sdk-path)
+> CPATH="$SDK/usr/include/c++/v1:$(xcrun --find clang | xargs dirname)/../lib/clang/$(clang -dumpversion)/include" \
+>   npx node-gyp rebuild
+> ```
+>
+> 彻底修复需重装命令行工具：`sudo rm -rf /Library/Developer/CommandLineTools && sudo xcode-select --install`。
 
 ### 第一步：准备数据库
 
