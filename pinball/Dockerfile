@@ -27,4 +27,5 @@ COPY --from=builder /app/next.config.* ./
 COPY --from=builder /app/tsconfig.json ./
 EXPOSE 3000
 # 生产默认起 Next；worker service 用 command 覆盖为 ["pnpm","worker"]
+# 容器内固定 3000，宿主端口由 docker-compose 的 ports 映射（当前 8477:3000）
 CMD ["pnpm", "start"]

@@ -8,7 +8,7 @@ export default defineConfig({
   retries: 0,
   reporter: [['list']],
   use: {
-    baseURL: process.env.TEST_BASE_URL ?? 'http://localhost:3000',
+    baseURL: process.env.TEST_BASE_URL ?? 'http://localhost:8477',
     viewport: { width: 390, height: 844 },
     isMobile: true,
     hasTouch: true,
@@ -19,7 +19,7 @@ export default defineConfig({
     ? undefined
     : {
         command: 'pnpm build && pnpm start',
-        port: 3000,
+        port: 8477,
         timeout: 120_000,
         reuseExistingServer: !process.env.CI,
       },

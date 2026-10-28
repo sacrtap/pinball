@@ -65,7 +65,7 @@ services:
       # L4 全局先验聚合角色（BYPASSRLS，仅跨租户聚合 job 使用）
       AGG_DATABASE_URL: postgresql://pinball_agg:pinball_agg_dev@postgres:5432/${POSTGRES_DB:-pinball}
       AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET required}
-      AUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_URL: ${NEXTAUTH_URL:-http://localhost:8477}
       AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
       AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
       AUTH_GITHUB_ID: ${AUTH_GITHUB_ID:-}
@@ -75,7 +75,7 @@ services:
       EMAIL_SERVER: ${EMAIL_SERVER:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
     ports:
-      - "3000:3000"
+      - "8477:3000"
 
   worker:
     build:

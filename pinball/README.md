@@ -109,7 +109,7 @@ docker compose exec app pnpm prisma migrate deploy
 docker compose exec app pnpm prisma db seed
 ```
 
-访问 <http://localhost:3000>，使用种子账号登录：
+访问 <http://localhost:8477>，使用种子账号登录：
 
 ```text
 邮箱：dev@pinball.local
@@ -120,7 +120,7 @@ compose 包含 5 个服务：
 
 | 服务 | 说明 |
 | --- | --- |
-| `app` | Next.js 应用（端口 3000） |
+| `app` | Next.js 应用（容器内 3000，宿主映射 `8477:3000`） |
 | `worker` | BullMQ 蒙特卡洛重拟合 worker（同 image，`command: pnpm worker`） |
 | `postgres` | PostgreSQL 16，初始化时执行 `prisma/sql/01-app-role.sql` |
 | `pgbouncer` | transaction 模式连接池（兼容 RLS 的 `set_config(..., true)`） |
@@ -148,7 +148,7 @@ psql -U postgres -d pinball_test -f prisma/sql/01-app-role.sql
 
 pnpm prisma migrate deploy    # 两个库都要执行
 pnpm prisma db seed
-pnpm dev                      # http://localhost:3000
+pnpm dev                      # http://localhost:8477
 ```
 
 > **为什么必须用非 superuser 连接？**
@@ -258,7 +258,7 @@ E2E 需要**生产构建 + 运行中的服务**（mobile 390×844 视口，Pixel
 pnpm build
 pnpm start &                       # 或 pnpm dev
 
-pnpm playwright test               # 默认连 http://localhost:3000
+pnpm playwright test               # 默认连 http://localhost:8477
 ```
 
 覆盖两条关键链路：
@@ -269,7 +269,7 @@ pnpm playwright test               # 默认连 http://localhost:3000
 指向其他地址：
 
 ```bash
-TEST_BASE_URL=http://localhost:3000 pnpm playwright test
+TEST_BASE_URL=http://localhost:8477 pnpm playwright test
 ```
 
 查看 HTML 报告：
@@ -294,33 +294,33 @@ pnpm build && pnpm start &
 sleep 8
 ```
 
-1. **注册**：访问 <http://localhost:3000/register>，填邮箱密码 → OTP 验证码打在服务端日志（`EMAIL_MODE=console`）→ 验证通过自动建 User + Tenant + Membership。
-2. **登录**：<http://localhost:3000/login>，登录后 JWT 携带 `userId` + `tenantId`。
+1. **注册**：访问 <http://localhost:8477/register>，填邮箱密码 → OTP 验证码打在服务端日志（`EMAIL_MODE=console`）→ 验证通过自动建 User + Tenant + Membership。
+2. **登录**：<http://localhost:8477/login>，登录后 JWT 携带 `userId` + `tenantId`。
 3. **建机台**：首页 → 新建机台（code 唯一，如 `SMOKE-1`）。
 4. **建 Session**：机台详情 → 开始新对局。
 5. **录 ≥ 20 局**：6 步向导逐局录入；满 20 局后发力步骤自动弹出推荐抽屉。
 6. **查看推荐**：`RecommendSheet` 展示 Thompson 推荐档位、置信度条形、12 通道概率热力条、亮灯联合命中概率、期望返还。
-7. **统计页**：<http://localhost:3000/stats> 查看落点分布、盈亏趋势、校准曲线、regret、发力×倍率矩阵。
-8. **设置页**：<http://localhost:3000/settings> 验证租户切换、成员邀请、导出 JSON/CSV、免责声明。
+7. **统计页**：<http://localhost:8477/stats> 查看落点分布、盈亏趋势、校准曲线、regret、发力×倍率矩阵。
+8. **设置页**：<http://localhost:8477/settings> 验证租户切换、成员邀请、导出 JSON/CSV、免责声明。
 
 命令行冒烟（无需浏览器）：
 
 ```bash
 # 登录拿 cookie
-curl -s -c /tmp/c.txt http://localhost:3000/api/auth/csrf \
+curl -s -c /tmp/c.txt http://localhost:8477/api/auth/csrf \
   | python3 -c "import json,sys;print(json.load(sys.stdin)['csrfToken'])" > /tmp/csrf
-curl -s -b /tmp/c.txt -c /tmp/c.txt -X POST http://localhost:3000/api/auth/callback/credentials \
+curl -s -b /tmp/c.txt -c /tmp/c.txt -X POST http://localhost:8477/api/auth/callback/credentials \
   --data-urlencode "email=dev@pinball.local" \
   --data-urlencode "password=dev-password-123" \
   --data-urlencode "csrfToken=$(cat /tmp/csrf)" -o /dev/null
 
 # 推荐接口（样本 < 20 应返回 mode=prior 降级）
-curl -s -b /tmp/c.txt -X POST http://localhost:3000/api/recommend \
+curl -s -b /tmp/c.txt -X POST http://localhost:8477/api/recommend \
   -H "Content-Type: application/json" \
   -d '{"machineId":"<uuid>","multiplier":2,"litHoles":[1,2,3,4,5],"totalBet":5}'
 
 # 未认证必须 401
-curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:3000/api/recommend \
+curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8477/api/recommend \
   -H "Content-Type: application/json" -d '{"machineId":"<uuid>","multiplier":2,"litHoles":[1,2,3,4,5]}'
 ```
 
