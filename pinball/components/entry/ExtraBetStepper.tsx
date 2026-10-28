@@ -74,41 +74,41 @@ export function ExtraBetStepper({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* 唯一珠数显示：输入即当前总珠数 */}
       <div
-        className={`rounded-xl border p-3 text-center ${
+        className={`rounded-xl border p-2 text-center ${
           outOfRange ? 'border-[var(--error)]' : 'border-[var(--border)]'
         }`}
         aria-live="polite"
       >
         <div className="text-xs text-[var(--muted)]">本局总珠数</div>
         <div
-          className={`text-4xl font-bold tabular-nums ${
+          className={`text-2xl font-bold tabular-nums ${
             outOfRange ? 'text-[var(--error)]' : 'text-[var(--fg)]'
           }`}
         >
           {buffer === '' ? <span className="text-[var(--muted)]">输入总珠数</span> : total}
         </div>
-        <div className="mt-1 text-xs text-[var(--muted)]">
+        <div className="text-xs text-[var(--muted)]">
           基础 {BASE_BET} + 加注 {value} · 可输入 {BASE_BET} ~ {BASE_BET + MAX_EXTRA_BET} 珠
         </div>
         {outOfRange && (
-          <p className="mt-1 text-xs text-[var(--error)]">
+          <p className="text-xs text-[var(--error)]">
             总珠数需在 {BASE_BET} ~ {BASE_BET + MAX_EXTRA_BET} 之间
           </p>
         )}
       </div>
 
-      {/* 数字键盘 */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* 数字键盘（紧凑布局） */}
+      <div className="grid grid-cols-3 gap-1.5">
         {KEYS.map((k) => (
           <button
             key={k}
             type="button"
             onClick={() => press(k)}
             aria-label={k}
-            className={`min-h-14 rounded-xl border text-xl font-bold active:scale-95 ${
+            className={`min-h-10 rounded-lg border text-lg font-bold active:scale-95 ${
               k === '清空' || k === '删除'
                 ? 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]'
                 : 'border-[var(--border)] bg-[var(--surface)] text-[var(--fg)]'

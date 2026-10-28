@@ -104,7 +104,7 @@ export function EntryWizard({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* 顶部常驻累计 */}
       <div className="grid grid-cols-4 gap-2 rounded-xl border border-[var(--border)] p-2 text-center text-xs">
         <Stat label="局数" value={overview.roundCount} />
@@ -113,7 +113,7 @@ export function EntryWizard({
         <Stat label="净盈亏" value={overview.totalWin - overview.totalBet} accent />
       </div>
 
-      {/* 步骤指示 */}
+      {/* 步骤指示（含步骤名，省去独立标题行） */}
       <div className="flex items-center gap-1">
         {STEP_TITLES.map((t, i) => (
           <div key={t} className="flex-1">
@@ -126,10 +126,6 @@ export function EntryWizard({
           </div>
         ))}
       </div>
-
-      <h2 className="text-lg font-bold">
-        {step + 1}/3 {STEP_TITLES[step]}
-      </h2>
 
       {step === 0 && (
         <>

@@ -42,49 +42,52 @@ export function RecommendCard({
   return (
     <section
       aria-label="发力推荐"
-      className="space-y-2 rounded-2xl border border-[var(--accent)]/50 bg-[var(--surface)] p-3"
+      className="space-y-1.5 rounded-2xl border border-[var(--accent)]/50 bg-[var(--surface)] p-2"
     >
-      <div className="flex items-baseline justify-between">
-        <h3 className="text-xs font-medium text-[var(--muted)]">发力推荐</h3>
+      {/* 标题行：推荐标题 + 推荐档位 + mode 同行，压缩高度 */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-baseline gap-1.5">
+          <h3 className="text-xs font-medium text-[var(--muted)]">发力推荐</h3>
+          {data.thompsonPower && (
+            <span className="text-base font-bold text-[var(--accent)]">
+              {POWER_LABEL[data.thompsonPower] ?? data.thompsonPower}
+            </span>
+          )}
+          {data.thompsonPower && (
+            <span className="text-[10px] text-[var(--muted)]">
+              {data.thompsonPower === data.argmaxPower ? '高置信' : '加速学习'}
+            </span>
+          )}
+        </div>
         <span className="text-[10px] text-[var(--muted)]">
-          {data.mode === 'thompson' ? 'Thompson 采样' : '先验'}
+          {data.mode === 'thompson' ? 'Thompson' : '先验'}
         </span>
       </div>
 
       {data.degraded && (
-        <p className="rounded-lg border border-[var(--warning)]/40 bg-[var(--warning)]/10 px-2 py-1 text-[11px]">
+        <p className="rounded-lg border border-[var(--warning)]/40 bg-[var(--warning)]/10 px-2 py-0.5 text-[11px]">
           {data.message ?? '各档无显著差异，正在探索'}
         </p>
       )}
 
-      {data.thompsonPower && (
-        <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-bold text-[var(--accent)]">
-            {POWER_LABEL[data.thompsonPower] ?? data.thompsonPower}
-          </span>
-          <span className="text-[10px] text-[var(--muted)]">
-            {data.thompsonPower === data.argmaxPower ? '与点估计一致 · 高置信' : '按推荐执行以加速学习'}
-          </span>
-        </div>
-      )}
-
-      <div className="flex gap-3">
-        <div className="flex-1 space-y-1">
+      {/* 三档概率条 + 命中/中奖：紧凑布局 */}
+      <div className="flex gap-2">
+        <div className="flex-1 space-y-0.5">
           {POWER_LEVELS.map((p, i) => {
             const prob = data.bestArmProb?.[i] ?? 0;
             const best = p === data.thompsonPower;
             return (
-              <div key={p} className="flex items-center gap-1.5 text-[11px]">
-                <span className={`w-7 shrink-0 ${best ? 'text-[var(--fg)]' : 'text-[var(--muted)]'}`}>
+              <div key={p} className="flex items-center gap-1 text-[11px]">
+                <span className={`w-6 shrink-0 ${best ? 'text-[var(--fg)]' : 'text-[var(--muted)]'}`}>
                   {POWER_LABEL[p]}
                 </span>
-                <div className="h-2 flex-1 rounded-full bg-[var(--border)]">
+                <div className="h-1.5 flex-1 rounded-full bg-[var(--border)]">
                   <div
-                    className={`h-2 rounded-full ${best ? 'bg-[var(--accent)]' : 'bg-[var(--muted)]/60'}`}
+                    className={`h-1.5 rounded-full ${best ? 'bg-[var(--accent)]' : 'bg-[var(--muted)]/60'}`}
                     style={{ width: `${prob * 100}%` }}
                   />
                 </div>
-                <span className="w-8 shrink-0 text-right tabular-nums">
+                <span className="w-7 shrink-0 text-right tabular-nums">
                   {(prob * 100).toFixed(0)}%
                 </span>
               </div>
@@ -92,14 +95,14 @@ export function RecommendCard({
           })}
         </div>
 
-        <dl className="w-16 shrink-0 space-y-1 border-l border-[var(--border)] pl-2 text-center">
+        <dl className="w-14 shrink-0 space-y-0.5 border-l border-[var(--border)] pl-1.5 text-center">
           <div>
             <dt className="text-[10px] text-[var(--muted)]">命中</dt>
-            <dd className="text-sm font-bold tabular-nums">{(hitProb * 100).toFixed(1)}%</dd>
+            <dd className="text-xs font-bold tabular-nums">{(hitProb * 100).toFixed(1)}%</dd>
           </div>
           <div>
             <dt className="text-[10px] text-[var(--muted)]">中奖</dt>
-            <dd className="text-sm font-bold tabular-nums">{reward}</dd>
+            <dd className="text-xs font-bold tabular-nums">{reward}</dd>
           </div>
         </dl>
       </div>
