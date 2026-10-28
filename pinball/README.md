@@ -216,7 +216,15 @@ node -v && pnpm -v && pg_isready -p 5432 && redis-cli ping
 > npx node-gyp rebuild
 > ```
 >
-> 若编译报 C++ 标准库头文件缺失（如 `'functional' file not found`），说明 Xcode CLT 的 `/usr/include/c++/v1/` 不完整。先用 SDK 内的完整头文件路径编译：
+> 若编译报 C++ 标准库头文件缺失（如 `'functional' file not found`），说明 macOS Command Line Tools 的 libc++ 头不完整（系统更新会清空，`ls /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/` 应约 185 项）。**首选重装 CLT 根治**：
+>
+> ```bash
+> sudo rm -rf /Library/Developer/CommandLineTools && sudo xcode-select --install
+> ```
+>
+> 该命令触发的是 GUI 安装器，会停在许可界面等你点 **Install** 和 **Agree**（无下载活动≠卡死，是在等待点击）。安装约 5-10 分钟，以 `ls /Library/Developer/CommandLineTools/SDKs/` 出现 SDK 目录为完成。之后重跑 `npx node-gyp rebuild` 即可，无需任何额外编译参数。
+>
+> 仅当无法重装 CLT 时，才临时用 SDK 头路径绕过：
 >
 > ```bash
 > cd node_modules/.pnpm/argon2@0.45.1/node_modules/argon2
@@ -225,7 +233,9 @@ node -v && pnpm -v && pg_isready -p 5432 && redis-cli ping
 >   npx node-gyp rebuild
 > ```
 >
-> 彻底修复需重装命令行工具：`sudo rm -rf /Library/Developer/CommandLineTools && sudo xcode-select --install`。
+> **若 `pnpm install` 本身反复失败**（argon2 install 脚本失败导致整个 install 回滚、node_modules 被清空）：先重装 CLT；确需绕过时 `pnpm install --ignore-scripts` 装齐依赖，再 `pnpm rebuild argon2` + `npx prisma generate`。
+>
+> **重装 CLT 或 `pnpm install --force` 后若 lint 报 `couldn't find the plugin "eslint-plugin-react-hooks"`**：依赖提升布局处于中间态，`npx -y pnpm@10 install --force` 重建一次（约 2.5 分钟）。
 
 ### 第一步：准备数据库
 
