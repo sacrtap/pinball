@@ -69,6 +69,17 @@ Questions to answer:
 
 另外：断言「选中数量 == 上限」比断言「某几个被选中」更强，能同时抓住多选和漏选。
 
+### E2E 与本地构建的环境陷阱（2026-10-28 实测）
+
+| 症状 | 根因 | 处置 |
+| --- | --- | --- |
+| 页面 500 + 日志 `webpack-runtime.js: TypeError: Cannot read properties of undefined (reading 'call')` | dev server 常驻时并发执行 `next build`，两个进程竞争写 `.next`，产出残缺 chunk | `next.config.ts` 支持 `E2E_BUILD=1` 切独立 `distDir: .next-e2e`；E2E 用 `TEST_BASE_URL` 指向该构建的 `next start`。tsconfig include / eslint ignores / .gitignore 已同步 `.next-e2e` |
+| `pnpm install` 报 `ERR_PNPM_INVALID_WORKSPACE_CONFIGURATION packages field missing or empty` | 本目录 `pnpm-workspace.yaml` 只有 `allowBuilds`（pnpm 10 语义），本机默认 pnpm 8 不认 | 一律 `npx -y pnpm@10 install`；README 已要求 pnpm ≥10 |
+| argon2 编译失败 `'functional' file not found` | macOS CLT 的 `/usr/include/c++/v1` 被系统更新清空（仅剩 11 项，SDK 内 185 项完好），clang 的 `-internal-isystem` 优先指向残缺目录 | 手动补编：`cd node_modules/.pnpm/argon2@*/node_modules/argon2 && CXX="clang++ -stdlib=libc++ -isystem \$(xcrun --show-sdk-path)/usr/include/c++/v1" /usr/local/bin/node-gyp rebuild`。注意沙箱无外网时 `npx node-gyp` 会 ECONNRESET，用本地 `/usr/local/bin/node-gyp` |
+| `pnpm install` 每次因 argon2 install 脚本失败整体回滚（node_modules 被清空） | 同上；install 脚本不带 CXX 注入 | 先 `pnpm install --ignore-scripts` 装齐依赖，再手动补编 argon2 + `npx prisma generate` |
+
+**规则**：改动 `pnpm-lock.yaml` 必须用 pnpm 10（pnpm 8 会把 lockfileVersion 降级并漂移依赖版本，产生 6000+ 行无关 diff）。
+
 ---
 
 ## Code Review Checklist

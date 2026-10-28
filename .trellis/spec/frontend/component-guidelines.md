@@ -52,6 +52,29 @@ Questions to answer:
 
 ---
 
+## UI 基元契约（2026-10-28 起强制）
+
+项目**不引入外部 UI 框架**（无 arco/shadcn/radix；Tailwind v4 + CSS 变量是唯一样式体系）。统一靠 `components/ui/` 基元层收敛，不靠口头约定。
+
+### 基元清单与选型规则
+
+| 需求 | 用什么 | 禁止 |
+| --- | --- | --- |
+| 按钮 | `TouchButton`（`variant` × `size` × `loading`） | 手写 `<button className="rounded-lg border …">` |
+| 输入框 | `Input`（`invalid` 错误态） | 手写 `<input className="min-h-12 …">` |
+| 卡片容器 | `Card` | 手写 `<div className="rounded-xl border …">` |
+| 有自身布局的领域控件 | `styles.ts` 常量（`SELECTABLE_BASE`/`SELECTABLE_IDLE`/`SELECTABLE_ACTIVE`/`SELECTABLE_DISABLED`/`LINK_BUTTON`） | 复制 class 字面量 |
+
+领域控件（倍率/发力选择、数字键盘、洞位板、`<a>` 链接按钮）**不并入 TouchButton**——它们自含选中态、布局、无障碍语义，并入会让基元膨胀成万能组件。正确做法是引用共享样式常量，保留各自布局。
+
+### 异步交互必须防重
+
+fetch 进行中一律 `loading`/`disabled` 或 `if (busy) return` 守卫。删除类操作失败时**保持确认态**允许重试，不静默吞错（`MachineList.doDelete` 曾无防重，双击「确认」连发两次 DELETE）。
+
+### 扩展优先于新建
+
+`TouchButton` 已有 6 个消费者时，正确动作是**给它加 `size`/`loading`**，而不是新建 `Button` 再迁移 6 处。动手前先 `grep` 消费者数量再决定扩展还是替换。
+
 ## Common Mistakes
 
 <!-- Component-related mistakes your team has made -->
@@ -112,3 +135,30 @@ const reward = totalBet * multiplier;          // 整数
 ```
 
 **检测方法**：review 时对每个展示数值问「这个值的业务含义是什么？是计数还是概率？标签是否准确？」。若值为小数但业务语义是离散计数，必有问题。
+
+### E2E 步骤断言必须锚定「控件」而非「标题文本」
+
+**实例**（2026-10-28 修复，断裂源自 `afe0758`）：`EntryWizard` 的步骤指示原为
+`{step + 1}/3 {STEP_TITLES[step]}`，后改为纯 `STEP_TITLES` 条（无序号前缀），
+但 `entry-flow.spec.ts` 的 6 处断言仍写 `text=2/3 发力与加注` —— 全部失效。
+该 E2E 从此处于**红色但无人发现**的状态，直到本轮跑全量 Playwright 才暴露。
+
+**契约**：断言步骤/状态时，锚定**该步骤独有的控件**（如 step1 的数字键盘
+`button[aria-label="清空"]`、step2 的落点板 `button[aria-label="落点 N 号洞"]`），
+并同时断言**其他步骤的控件不存在**（`toHaveCount(0)`）。标题文案是展示层，
+改版首当其冲；控件存在性是行为层，与步骤状态一一对应。
+
+**配套规则**：改任何组件结构/文案后，跑一次**全量** E2E，不能只跑改动的那个
+spec——同文件内的交叉断言就是靠全量运行才暴露的。
+
+### 浮点重构必须对拍，且中间步骤要一致
+
+**实例**（2026-10-28，`pnlTrend` O(n²)→O(n)）：旧实现
+`slice(0, i+1).reduce((s, x) => s + x.reward - x.totalBet, 0)` 每步是
+`(s + reward) - bet`；直觉写法 `acc += reward - bet` 每步变成
+`acc + (reward - bet)` —— **IEEE754 下结果不同**（实测某点 `96.19` vs
+`96.19000000000001`）。`tests/evaluate-pnl.test.ts` 的 1000 局对拍 + 0.1
+累加敏感用例抓到了它。
+
+**契约**：任何「等价重构」先写对拍测试（新实现 vs 旧实现字面复刻）再动手；
+累加/累减混合表达式保持**逐步一致**，不要凭「数学上等价」重排运算顺序。
