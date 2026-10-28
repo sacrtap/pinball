@@ -68,7 +68,7 @@
 
 ## 架构概览
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │  Next.js 15 (App Router)                                    │
 │  ┌──────────────┐  ┌───────────────┐  ┌──────────────────┐  │
@@ -113,9 +113,9 @@ docker compose exec app pnpm prisma migrate deploy
 docker compose exec app pnpm prisma db seed
 ```
 
-访问 http://localhost:3000 ，使用种子账号登录：
+访问 <http://localhost:3000>，使用种子账号登录：
 
-```
+```text
 邮箱：dev@pinball.local
 密码：dev-password-123
 ```
@@ -298,14 +298,14 @@ pnpm build && pnpm start &
 sleep 8
 ```
 
-1. **注册**：访问 http://localhost:3000/register ，填邮箱密码 → OTP 验证码打在服务端日志（`EMAIL_MODE=console`）→ 验证通过自动建 User + Tenant + Membership。
-2. **登录**：http://localhost:3000/login ，登录后 JWT 携带 `userId` + `tenantId`。
+1. **注册**：访问 <http://localhost:3000/register>，填邮箱密码 → OTP 验证码打在服务端日志（`EMAIL_MODE=console`）→ 验证通过自动建 User + Tenant + Membership。
+2. **登录**：<http://localhost:3000/login>，登录后 JWT 携带 `userId` + `tenantId`。
 3. **建机台**：首页 → 新建机台（code 唯一，如 `SMOKE-1`）。
 4. **建 Session**：机台详情 → 开始新对局。
 5. **录 ≥ 20 局**：6 步向导逐局录入；满 20 局后发力步骤自动弹出推荐抽屉。
 6. **查看推荐**：`RecommendSheet` 展示 Thompson 推荐档位、置信度条形、12 通道概率热力条、亮灯联合命中概率、期望返还。
-7. **统计页**：http://localhost:3000/stats 查看落点分布、盈亏趋势、校准曲线、regret、发力×倍率矩阵。
-8. **设置页**：http://localhost:3000/settings 验证租户切换、成员邀请、导出 JSON/CSV、免责声明。
+7. **统计页**：<http://localhost:3000/stats> 查看落点分布、盈亏趋势、校准曲线、regret、发力×倍率矩阵。
+8. **设置页**：<http://localhost:3000/settings> 验证租户切换、成员邀请、导出 JSON/CSV、免责声明。
 
 命令行冒烟（无需浏览器）：
 
@@ -332,7 +332,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:3000/api/recom
 
 ## 测试体系说明
 
-```
+```text
 tests/
 ├── rls.test.ts          # RLS 租户隔离（连真实 PG，核心安全断言）
 ├── auth.test.ts         # 认证（Argon2id / OTP / 注册事务）
@@ -371,7 +371,7 @@ tests/
 
 ## 项目结构
 
-```
+```text
 pinball/
 ├── app/
 │   ├── (app)/                 # 已登录页面
