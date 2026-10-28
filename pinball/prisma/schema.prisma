@@ -121,6 +121,8 @@ model Round {
   cardIssued       Int
   recommendedPower String?
   recommendMode    String?
+  /** 录入时点推荐臂亮灯联合命中概率（null = 录入时无推荐/历史局） */
+  predictedHitProb Float?
   modelVersion     Int      @default(1)
   edited           Boolean  @default(false)
   clientRequestId  String

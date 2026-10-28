@@ -190,6 +190,34 @@ export function powerMultiplierMatrix(
 }
 
 /**
+ * 发力 × 洞位落点计数矩阵（索引序同 POWER_LEVELS × 洞位 [1..holeCount]）。
+ *
+ * 与 powerMultiplierMatrix 同构：固定顺序遍历 POWER_LEVELS，缺失档/缺洞补 0，
+ * 保证前端渲染不依赖数据存在性（0 → 显示「·」）。total 为该档总局数，
+ * 供行内占比与 χ² 期望计算。越界/非法落点不入桶（防脏数据污染矩阵）。
+ */
+export function landHoleByPower(
+  rounds: RoundLike[],
+  holeCount: number,
+): { power: PowerLevel; total: number; holes: number[] }[] {
+  const acc = new Map<PowerLevel, number[]>();
+  for (const power of POWER_LEVELS) acc.set(power, new Array<number>(holeCount).fill(0));
+
+  for (const r of rounds) {
+    const buckets = acc.get(r.power);
+    if (!buckets) continue;
+    const idx = r.landHole - 1;
+    if (!Number.isInteger(idx) || idx < 0 || idx >= holeCount) continue;
+    buckets[idx] += 1;
+  }
+
+  return POWER_LEVELS.map((power) => {
+    const holes = acc.get(power)!;
+    return { power, total: holes.reduce((s, n) => s + n, 0), holes };
+  });
+}
+
+/**
  * 累计净盈亏曲线（单遍前缀和，O(n)）。
  *
  * 数值语义与旧实现（slice(0, i+1).reduce((s, x) => s + x.reward - x.totalBet, 0)）

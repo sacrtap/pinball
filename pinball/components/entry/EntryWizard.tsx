@@ -70,6 +70,9 @@ export function EntryWizard({
 
   async function submit() {
     const clientRequestId = crypto.randomUUID();
+    // 推荐快照：亮灯选满时预取的 /api/recommend 结果。取不到（请求失败/
+    // 未达样本阈值前的降级返回缺失）时三字段均为 null，不阻塞录入。
+    const rec = store.recommendation;
     const payload = {
       sessionId,
       machineId,
@@ -80,6 +83,10 @@ export function EntryWizard({
       power,
       landHole,
       clientRequestId,
+      recommendedPower: rec?.thompsonPower ?? null,
+      recommendMode: rec?.degraded ? 'prior' : rec ? 'thompson' : null,
+      // 录入时点的推荐命中概率（校准曲线输入，服务端不重算）
+      predictedHitProb: rec?.litHitProb ?? null,
     };
 
     // 在线优先直传；断网/失败 → 入 outbox 暂存，恢复后幂等重放

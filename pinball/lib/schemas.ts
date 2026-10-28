@@ -29,6 +29,8 @@ const RoundFieldsSchema = z.object({
   clientRequestId: z.string().min(1).max(128),
   recommendedPower: z.enum(['low', 'mid', 'high']).optional().nullable(),
   recommendMode: z.enum(['thompson', 'prior']).optional().nullable(),
+  /** 录入时点推荐臂亮灯联合命中概率（0-1，缺省表示无推荐） */
+  predictedHitProb: z.number().min(0).max(1).optional().nullable(),
 });
 
 /** 跨字段校验：亮灯数=倍率映射、亮灯不重复、投入下限 */

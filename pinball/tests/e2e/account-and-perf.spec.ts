@@ -57,9 +57,11 @@ test.describe('账号与响应性', () => {
 
     await page.goto('/stats');
     await expect(page.getByRole('heading', { name: '复盘统计' })).toBeVisible();
-    // 数据区渲染完成（KPI 出现即证明 RSC 流结束；空数据下 StatsCharts 显示引导文案）
-    await expect(page.getByText('总局数')).toBeVisible();
+    // 流式传输期间 loading 骨架与真实内容会短暂并存（两个 <main>），
+    // 故不能裸文本断言 KPI 标签（骨架/内容同名元素 → strict mode violation）。
+    // 改为等待骨架退出、再断言真实内容独有的元素。
     await expect(page.locator('main[aria-busy="true"]')).toHaveCount(0);
+    await expect(page.getByText('暂无数据，先录入几局吧。')).toBeVisible();
   });
 
   test('删除机台双击确认只发 1 次 DELETE', async ({ page, request }) => {

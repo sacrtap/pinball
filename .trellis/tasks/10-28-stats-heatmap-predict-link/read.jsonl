@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "UI 基元契约：新组件须用基元层与 styles.ts 常量"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "测试约定：E2E 全量跑、边界禁用恢复、环境陷阱"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用优先：先查既有纯函数与聚合位置再新建"}
+{"file": "pinball/lib/predict/evaluate.ts", "reason": "聚合函数单一来源，新聚合落此文件"}
+{"file": "pinball/components/entry/EntryWizard.tsx", "reason": "录入 payload 构造点与 recommend 预取逻辑"}
