@@ -182,17 +182,31 @@ node -v && pnpm -v && pg_isready -p 5432 && redis-cli ping
 ```
 
 > **`pnpm install` 报 `ERR_PNPM_IGNORED_BUILDS`？**
-> 本项目需要 7 个包运行安装后构建脚本（`@prisma/client`、`@prisma/engines`、`argon2`、`esbuild`、`msgpackr-extract`、`prisma`、`unrs-resolver`），已在 `package.json` 的 `pnpm.onlyBuiltDependencies` 中声明，正常无需额外操作。
+> 本项目有 7 个包必须运行安装后构建脚本：`@prisma/client`、`@prisma/engines`、`argon2`、`esbuild`、`msgpackr-extract`、`prisma`、`unrs-resolver`（prisma client 生成 + 原生模块编译）。白名单位置随 pnpm 版本变化，**按你本地的 pnpm 大版本对号入座**：
 >
-> 若你的 `~/.npmrc` 设了 `allow-scripts` / `allow-scripts-pending`（部分工具会写入），该白名单会覆盖项目配置并导致此错误。两种处理：
+> | pnpm 版本 | 白名单位置 | 状态 |
+> | --- | --- | --- |
+> | ≥ 10 | `pnpm-workspace.yaml` 的 `allowBuilds` | 本仓库已提交 |
+> | 8 / 9 | `package.json` 的 `pnpm.onlyBuiltDependencies` | 新版会忽略并告警 |
+>
+> 因此 **pnpm 10+ 用户无需额外操作**，直接 `pnpm install` 即可。
+>
+> 若仍报此错，常见原因是 `~/.npmrc` 里的 `allow-scripts` / `allow-scripts-pending`（某些工具会写入）覆盖了项目配置。两种处理：
 >
 > ```bash
 > # 方案 A：删掉全局白名单（推荐，让各项目自行声明）
 > pnpm config delete allow-scripts --global
 > pnpm config delete allow-scripts-pending --global
 >
-> # 方案 B：保留全局配置，仅为本项目放行
+> # 方案 B：保留全局配置，仅为本项目放行（pnpm 10+ 交互式选择）
 > pnpm approve-builds
+> ```
+>
+> **argon2 编译报 `spawn node-gyp ENOENT`？**
+> 说明系统没有 `node-gyp` 命令（argon2 的 install 脚本经 `node-gyp-build` 调用它）。全局装一次即可：
+>
+> ```bash
+> npm i -g node-gyp
 > ```
 >
 > **Node 大版本切换必须重编 argon2**：`argon2` 是原生模块，按 Node ABI 编译，Node 24（ABI 137）与 Node 25（ABI 141）的产物**不通用**。切换 Node 大版本后首次 `pnpm install` 若报 `No native build was found for ... abi=NNN`，需手动重编：
