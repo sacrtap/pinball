@@ -49,6 +49,12 @@ For each boundary:
 - What is the exact output format?
 - What errors can occur?
 
+**回调契约（UI 组件边界）额外一问**：调用方拿到返回值后，需要**反推**「用户做了什么」吗？
+
+- 若需要 → 契约设计错了。把意图作为独立参数显式传出（如 `onChange(hole)` 而非 `onChange(holes)`）。
+- 返回值只承载**结果状态**，意图走独立通道。绝不让调用方依赖被调方的排序、去重、索引等内部表示。
+- 自检：调用方代码里出现 `[0]`、`.at(-1)`、`.find()`、`.slice()` 来「挖」用户点了哪一项，就是违例信号。
+
 ---
 
 ## Common Cross-Layer Mistakes
@@ -70,6 +76,32 @@ For each boundary:
 **Bad**: Component knows about database schema
 
 **Good**: Each layer only knows its neighbors
+
+### Mistake 3.5: Consumer Infers Intent From Returned State
+
+**Bad**: 回调返回「结果状态」，调用方靠状态反推「用户意图」
+
+```tsx
+// HoleBoard 上报排序后的数组，调用方猜用户点了哪个
+onChange([...value, hole].sort((a, b) => a - b));
+
+// EntryWizard：取排序后最后一个当「用户点的目标」
+const last = holes[holes.length - 1];
+if (!litHoles.includes(last)) store.toggleLitHole(last, litMax);
+```
+
+点击的洞位号小于已选最大值时，排序后它不在末尾 → 被误判为「点的是已选项」→ 两个分支都不匹配 → **点击被静默丢弃**。只有点比当前最大值更大的号才能落到末尾被识别。表现为「有时点了没反应」，实为确定性依赖点击顺序。
+
+**Good**: 回调直接上报意图，不依赖被调方的内部表示
+
+```tsx
+onChange: (hole: number) => void;   // 明确上报用户点击的洞位
+onChange={(hole) => store.toggleLitHole(hole, litMax)}
+```
+
+**判据**：调用方为了知道「用户/上游做了什么」，是否需要理解被调方的数据结构细节（排序、去重、分组、内部索引）？若是，契约就设计错了——**意图必须在边界上显式传递，不能从派生状态反推**。
+
+同类信号：回调签名里出现 `[0]`、`.at(-1)`、`.find(...)`、`slice(0, n)` 这类「从结果里挖意图」的写法。
 
 ### Mistake 4: Every Consumer Parses The Same Payload
 
