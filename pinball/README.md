@@ -1,5 +1,3 @@
-<div align="center">
-
 # 幻想兔 · 弹珠机预测系统
 
 **多租户 SaaS 化弹珠机个人统计分析工具**
@@ -7,8 +5,6 @@
 注册登录 → 机台建档 → 向导式快速录入对局 → 满 20 局后基于四层算法栈给出发力档位推荐与通道概率 → 复盘统计
 
 [Next.js 15](https://nextjs.org) · [Prisma 6](https://www.prisma.io) · [PostgreSQL RLS](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) · [Auth.js v5](https://authjs.dev) · [BullMQ](https://docs.bullmq.io) · [Vitest](https://vitest.dev) · [Playwright](https://playwright.dev)
-
-</div>
 
 ---
 
