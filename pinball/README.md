@@ -181,6 +181,20 @@ pnpm dev                      # http://localhost:8477
 node -v && pnpm -v && pg_isready -p 5432 && redis-cli ping
 ```
 
+> **`pnpm install` 报 `ERR_PNPM_IGNORED_BUILDS`？**
+> 本项目需要 7 个包运行安装后构建脚本（`@prisma/client`、`@prisma/engines`、`argon2`、`esbuild`、`msgpackr-extract`、`prisma`、`unrs-resolver`），已在 `package.json` 的 `pnpm.onlyBuiltDependencies` 中声明，正常无需额外操作。
+>
+> 若你的 `~/.npmrc` 设了 `allow-scripts` / `allow-scripts-pending`（部分工具会写入），该白名单会覆盖项目配置并导致此错误。两种处理：
+>
+> ```bash
+> # 方案 A：删掉全局白名单（推荐，让各项目自行声明）
+> pnpm config delete allow-scripts --global
+> pnpm config delete allow-scripts-pending --global
+>
+> # 方案 B：保留全局配置，仅为本项目放行
+> pnpm approve-builds
+> ```
+>
 > **Node 大版本切换必须重编 argon2**：`argon2` 是原生模块，按 Node ABI 编译，Node 24（ABI 137）与 Node 25（ABI 141）的产物**不通用**。切换 Node 大版本后首次 `pnpm install` 若报 `No native build was found for ... abi=NNN`，需手动重编：
 >
 > ```bash
@@ -463,8 +477,16 @@ docker compose exec app pnpm prisma migrate deploy
 
 ## 常见问题
 
+**Q：`pnpm dev` / `pnpm start` 报 `EADDRINUSE: address already in use :::8477`？**
+A：8477 已被占用（常见于上一次未退出的 dev/start 进程）。先停掉再重启：
+
+```bash
+lsof -ti:8477 | xargs kill      # macOS/Linux 通用
+pnpm dev
+```
+
 **Q：集成测试报 `Can't reach database server at 127.0.0.1:5432`？**
-A：确认 PG 在跑（`pg_isready`）。macOS Postgres.app 用户见[第一步](#第一步准备数据库)的 `auth_permission_dialog` 说明——后台进程被该库拦截，需换实例或端口。
+A：确认 PG 在跑（`pg_isready -p 5432`）。macOS Postgres.app 用户见[第一步](#第一步准备数据库)的 `auth_permission_dialog` 说明——后台进程被该库拦截，需换实例或端口。
 
 **Q：`tests/rls.test.ts` 报「连接角色无 BYPASSRLS 属性」失败？**
 A：你用了 superuser 连接。RLS 对超级用户完全无效，必须按[方式二](#方式二本地开发环境)建 `NOSUPERUSER NOBYPASSRLS` 的 `pinball_app` 角色。
