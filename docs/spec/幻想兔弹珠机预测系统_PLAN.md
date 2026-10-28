@@ -1,6 +1,6 @@
 # 「幻想兔」弹珠机预测系统 — 执行计划
 
-> 目标：从空仓库（仅有 `docs/` 与 Trellis 基础设施，无任何源码）按 5 个里程碑零决策落地 PRD v2.0 / TECH-PLAN v2.0 全量需求。
+> 目标：从仅有 `docs/spec/`（PRD / TECH-PLAN / 本执行计划）与 Trellis 基础设施的空仓库，按 5 个里程碑零决策落地 PRD v2.0 / TECH-PLAN v2.0 全量需求。
 > 技术栈已锁定：Next.js 15 (App Router) + TypeScript + PostgreSQL 16 + Prisma + Auth.js v5 + Tailwind + Zustand + zod + Recharts + Vitest + Playwright + Docker(全栈)。
 > 用户决策：①部署形态=自建 Docker 全栈（docker-compose: app+postgres+pgbouncer+redis，蒙特卡洛用 BullMQ worker 异步执行并按 fitVersion 缓存）；②认证范围=M1 即含 OAuth（Google+GitHub）+ 邮箱 OTP。
 
@@ -30,7 +30,7 @@ PRD 定义一款多租户 SaaS 化弹珠机个人统计分析工具：用户注�
 > 验收：RLS 集成测试全绿（双租户交叉访问恒 0 行）；注册→登录→建机台→建 Session 走通；OAuth(Google+GitHub)+邮箱OTP 均可登录。
 
 ### M1.1 工程脚手架与 Docker 环境
-1. `pnpm dlx create-next-app@latest pinball --ts --tailwind --app --eslint --src-dir=false --import-alias "@/*"`（在仓库根生成；保留现有 `docs/`、`.trellis/`、`AGENTS.md`）。安装依赖：`pnpm add @prisma/client prisma @auth/prisma-adapter @auth/core argon2 zod zustand recharts lucide-react @aws-sdk/client-ses`（邮件 OTP，见 M1.4 选型说明）；dev：`pnpm add -D vitest @playwright/test @types/node prettier eslint-config-next`。
+1. `pnpm dlx create-next-app@latest pinball --ts --tailwind --app --eslint --src-dir=false --import-alias "@/*"`（在仓库根生成；保留现有 `docs/`、`.trellis/`、`AGENTS.md`；三份设计文档位于 `docs/spec/`）。安装依赖：`pnpm add @prisma/client prisma @auth/prisma-adapter @auth/core argon2 zod zustand recharts lucide-react @aws-sdk/client-ses`（邮件 OTP，见 M1.4 选型说明）；dev：`pnpm add -D vitest @playwright/test @types/node prettier eslint-config-next`。
 2. 创建 `docker-compose.yml`：服务 `postgres`（image postgres:16-alpine，env POSTGRES_DB/USER/PASSWORD，volume `pgdata`，healthcheck `pg_isready`）、`pgbouncer`（image edoburu/pgbouncer:1.23，env 连接 postgres，pool_mode=transaction，max_client_conn=200，default_pool_size=20）、`redis`（image redis:7-alpine，healthcheck `redis-cli ping`）、`app`（build `./Dockerfile`，depends_on postgres+pgbouncer+redis healthy，env `DATABASE_URL` 指向 pgbouncer:6432、`DIRECT_DATABASE_URL` 指向 postgres:5432、`REDIS_URL`、`AUTH_SECRET`、`AUTH_GOOGLE_*`、`AUTH_GITHUB_*`、`EMAIL_*`、`NEXTAUTH_URL`）。PgBouncer 用 transaction 模式以兼容 RLS 的 `set_config(...,true)` 事务本地设置。
 3. 创建 `Dockerfile`：`FROM node:20-alpine`，装 pnpm，`pnpm install --frozen-lockfile`，`pnpm build`，`CMD ["pnpm","start"]`，暴露 3000。
 4. 创建 `.env.example`：列出 `DATABASE_URL`、`DIRECT_DATABASE_URL`、`REDIS_URL`、`AUTH_SECRET`、`AUTH_GOOGLE_ID/SECRET`、`AUTH_GITHUB_ID/SECRET`、`EMAIL_FROM`、`EMAIL_SERVER`（或 `RESEND_API_KEY`）、`NEXTAUTH_URL`。创建 `.gitignore` 追加 `.env*`、`node_modules`、`.next`、`pgdata`、`coverage`。
