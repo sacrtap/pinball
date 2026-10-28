@@ -7,6 +7,9 @@
 Thumbs.db
 desktop.ini
 
+# ===== 本地工作区工具数据 =====
+.workbuddy/
+
 # ===== 日志 =====
 *.log
 logs/
