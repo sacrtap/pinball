@@ -29,7 +29,6 @@ const RoundFieldsSchema = z.object({
   clientRequestId: z.string().min(1).max(128),
   recommendedPower: z.enum(['low', 'mid', 'high']).optional().nullable(),
   recommendMode: z.enum(['thompson', 'prior']).optional().nullable(),
-  hit: z.boolean().optional(),
 });
 
 /** 跨字段校验：亮灯数=倍率映射、亮灯不重复、投入下限 */

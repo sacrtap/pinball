@@ -9,11 +9,12 @@ import type { Machine } from '@/lib/types';
 export function MachineList({ initialMachines }: { initialMachines: Machine[] }) {
   const router = useRouter();
   const [machines, setMachines] = useState(initialMachines);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
-  async function onDelete(id: string) {
-    if (!confirm('删除机台将级联删除其全部对局与模型数据，确认？')) return;
+  async function doDelete(id: string) {
     await fetch(`/api/machines/${id}`, { method: 'DELETE' });
     setMachines((prev) => prev.filter((m) => m.id !== id));
+    setConfirmingId(null);
     router.refresh();
   }
 
@@ -39,9 +40,21 @@ export function MachineList({ initialMachines }: { initialMachines: Machine[] })
               {m.holeCount} 洞
             </span>
           </Link>
-          <TouchButton variant="danger" onClick={() => onDelete(m.id)} aria-label={`删除 ${m.code}`}>
-            删除
-          </TouchButton>
+          {confirmingId === m.id ? (
+            <span className="flex items-center gap-1 text-xs">
+              确认删除？
+              <TouchButton variant="ghost" onClick={() => setConfirmingId(null)}>
+                取消
+              </TouchButton>
+              <TouchButton variant="danger" onClick={() => doDelete(m.id)}>
+                确认
+              </TouchButton>
+            </span>
+          ) : (
+            <TouchButton variant="danger" onClick={() => setConfirmingId(m.id)} aria-label={`删除 ${m.code}`}>
+              删除
+            </TouchButton>
+          )}
         </li>
       ))}
     </ul>

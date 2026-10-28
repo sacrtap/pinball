@@ -221,3 +221,36 @@ rsync -av --delete --exclude='__pycache__' .trellis/scripts/ packages/cli/src/te
 ```
 
 **Gotcha**: Running rsync with wrong source/destination paths can create nested garbage directories (e.g., `.trellis/scripts/packages/cli/...`). Always double-check paths before running.
+
+---
+
+## Edit-Tool Self-Inflicted Bugs: The "Verbatim Copy" Trap
+
+When an `edit` call copies a line from the surrounding context into its
+`new_string`, the copy is **not** verified — the tool applies whatever you typed.
+A single dropped token in an expression that is otherwise valid TypeScript
+compiles cleanly and fails only at runtime.
+
+### Checklist: When An Edit Touches An Existing Expression
+
+- [ ] If you copy a line, diff your `new_string` against the original mentally,
+      token by token — especially accumulators, comparison operators, and `??`/`?.`
+- [ ] After the edit, run the affected test **immediately**, before any further edits
+- [ ] If a test that passed at baseline now fails, run `git diff <file>` and read
+      **only** the hunks you touched before theorising about root causes
+- [ ] Treat `git stash` + rerun as the baseline oracle: if the failure disappears,
+      the cause is in your diff, not in the codebase
+
+**Real-world example (pinball `tests/predict.test.ts`)**: inserting an assertion
+next to `rec.channelProb.reduce((s, x) => s + x, 0)` accidentally retyped the
+accumulator as `reduce((s, x) => s, 0)`. Valid TS, zero lint complaints, and the
+sum silently became `0`. The follow-up investigation burned several rounds on
+plausible-but-wrong theories (`alpha0 = 0`, NaN propagation, Prisma serialization,
+test-order pollution) because the failing line *looked* untouched and the printed
+`channelProb` array was visibly non-zero. `git diff` settled it in one command:
+`-reduce((s, x) => s + x, 0)` / `+reduce((s, x) => s, 0)`.
+
+**Rule of thumb**: when a test fails and you did not touch that line, *verify
+that claim with `git diff`* rather than reasoning from memory. "I only added a
+line below it" is exactly the kind of assumption that is cheap to check and
+expensive to get wrong.

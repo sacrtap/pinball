@@ -154,41 +154,45 @@ describe('predict 算法栈', () => {
     const rec = await withTenant(t.id, (tx) => recommend(tx, m.id, t.id, LIT_HOLES_2X));
     const sum = rec.channelProb.reduce((s, x) => s + x, 0);
     expect(sum).toBeCloseTo(1, 5);
+
+    // channelProb 是推荐档位的落点分布：亮灯通道概率之和必须等于 litHitProb（命中率口径）
+    const litSum = LIT_HOLES_2X.reduce((s, h) => s + (rec.channelProb[h - 1] ?? 0), 0);
+    expect(litSum).toBeCloseTo(rec.litHitProb, 5);
   });
 
-  it('⑤ 满 20 局解锁 vs 19 局降级', async () => {
+  it('⑤ 满 10 局解锁 vs 9 局降级', async () => {
     await cleanDatabase();
     const t = await prisma.tenant.create({ data: { name: '阈值租户' } });
-    const m19 = await withTenant(t.id, (tx) =>
-      repo.createMachine(tx, { tenantId: t.id, code: 'T19' }),
+    const m9 = await withTenant(t.id, (tx) =>
+      repo.createMachine(tx, { tenantId: t.id, code: 'T9' }),
     );
-    const m20 = await withTenant(t.id, (tx) =>
-      repo.createMachine(tx, { tenantId: t.id, code: 'T20' }),
+    const m10 = await withTenant(t.id, (tx) =>
+      repo.createMachine(tx, { tenantId: t.id, code: 'T10' }),
     );
 
-    // 19 局机台：总样本 = 19
+    // 9 局机台：总样本 = 9（< 阈值，应降级为先验）
     await withTenant(t.id, async (tx) => {
-      for (let i = 0; i < 19; i += 1) await updatePosterior(tx, m19.id, t.id, 'mid', (i % 12) + 1);
+      for (let i = 0; i < 9; i += 1) await updatePosterior(tx, m9.id, t.id, 'mid', (i % 12) + 1);
     });
-    const n19 = await withTenant(t.id, (tx) =>
-      tx.posterior.findMany({ where: { machineId: m19.id } }),
+    const n9 = await withTenant(t.id, (tx) =>
+      tx.posterior.findMany({ where: { machineId: m9.id } }),
     );
-    expect(n19.reduce((s, p) => s + p.counts.reduce((a, b) => a + b, 0), 0)).toBe(19);
+    expect(n9.reduce((s, p) => s + p.counts.reduce((a, b) => a + b, 0), 0)).toBe(9);
 
-    // 20 局机台：总样本 = 20
+    // 10 局机台：总样本 = 10（≥ 阈值，解锁 Thompson）
     await withTenant(t.id, async (tx) => {
-      for (let i = 0; i < 20; i += 1) await updatePosterior(tx, m20.id, t.id, 'mid', (i % 12) + 1);
+      for (let i = 0; i < 10; i += 1) await updatePosterior(tx, m10.id, t.id, 'mid', (i % 12) + 1);
     });
-    const n20 = await withTenant(t.id, (tx) =>
-      tx.posterior.findMany({ where: { machineId: m20.id } }),
+    const n10 = await withTenant(t.id, (tx) =>
+      tx.posterior.findMany({ where: { machineId: m10.id } }),
     );
-    expect(n20.reduce((s, p) => s + p.counts.reduce((a, b) => a + b, 0), 0)).toBe(20);
+    expect(n10.reduce((s, p) => s + p.counts.reduce((a, b) => a + b, 0), 0)).toBe(10);
 
     // 常量与规则自洽
     expect(POWER_LEVELS).toHaveLength(3);
     expect(litCountFor(2)).toBe(5);
     expect(PRIOR_STRENGTH).toBe(15);
-    expect(SAMPLE_THRESHOLD).toBe(20);
+    expect(SAMPLE_THRESHOLD).toBe(10);
   });
 
   it('⑥ 可复现性：同 seed 严格相等', () => {

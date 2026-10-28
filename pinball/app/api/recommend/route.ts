@@ -14,8 +14,7 @@ const BodySchema = z.object({
   litHoles: z.array(z.number().int().min(1).max(12)).min(1).max(12),
   totalBet: z.number().int().nonnegative().optional(),
 });
-
-/** POST 推荐：<20 局降级为先验；≥20 → Thompson 双轨 */
+/** POST 推荐：<10 局降级为先验；≥10 → Thompson 双轨 */
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.tenantId) return NextResponse.json({ error: '未认证' }, { status: 401 });

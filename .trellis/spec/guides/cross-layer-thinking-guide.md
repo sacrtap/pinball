@@ -357,3 +357,39 @@ state correctly, but several commands still re-parsed event payload fields with
 local casts. The fix was to make the core event layer own `ThreadChannelEvent`
 and `isThreadEvent`, make `reduceChannelMetadata` the only channel metadata
 projection, and make `reduceThreads` the only thread replay reducer.
+
+---
+
+## Semantic Contract: Same Number, Different Meaning
+
+A field name that looks self-explanatory often carries a *layer-specific*
+semantic. Rendering it with a generic label silently misinforms the user.
+
+### Checklist: Before Surfacing A Model Number In The UI
+
+- [ ] Trace the field to its computation site, not its type definition
+- [ ] Ask: is this a **rate/probability**, a **count**, or a **derived expectation**?
+- [ ] Check whether it is **per-arm/per-channel** or **aggregate over a set**
+- [ ] If aggregate over a set, verify the UI shows the same aggregation
+      (`sum` vs `max` vs `mean`) — and that the pieces visibly add up
+- [ ] Confirm the label names the *population*, e.g. "落点概率" not bare "概率"
+- [ ] If the value is only in a `title`/tooltip, mobile users never see it —
+      render it as text too
+
+**Real-world example (pinball `channelProb`)**: `channelProb` is the Dirichlet
+posterior mean of the *recommended power arm's* landing-hole distribution
+(`dirichletMeanOf(recArm.counts, α0)` in `lib/predict/bandit.ts:180`). It is
+**not** a hit rate. The hit rate is a different field, `litHitProb`, and it is
+exactly `Σ_{h∈litHoles} channelProb[h-1]` — the two are consistent by
+construction. The recommendation card originally labelled the 12-channel heatmap
+without a unit and exposed each channel's value only in a `title` attribute, so
+on mobile the user saw unlabelled bars and no way to verify the card's headline
+"命中" figure. Fix: show each channel's percentage as text, state the population
+in the label ("12 通道落点概率（中力）"), and add the invariant
+`Σ_{lit} channelProb == litHitProb` as a unit test so the two fields can never
+drift apart again.
+
+**Generalization**: whenever a UI headline number and a detail breakdown are
+computed by different code paths, pin the relationship with a test. A user who
+cannot reproduce the headline from the visible detail will assume the app is
+wrong.

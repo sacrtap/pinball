@@ -22,7 +22,7 @@ export const LIT_COUNT: Record<Multiplier, number> = {
 export const BASE_BET = 5;
 
 /** 解锁推荐的样本门槛（局数） */
-export const SAMPLE_THRESHOLD = 20;
+export const SAMPLE_THRESHOLD = 10;
 
 /** 单局奖励达到该珠数出 1 张积分卡 */
 export const CARD_THRESHOLD = 30;
