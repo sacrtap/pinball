@@ -38,62 +38,67 @@ export function StatsCharts({ data }: { data: StatsData }) {
   const axis = { stroke: 'var(--muted)', fontSize: 10 };
   // 洞位数列以矩阵实际宽度为准（服务端固定 12，避免再次硬编码）
   const holeCount = data.landHoleByPower[0]?.holes.length ?? 12;
-  const heatmapCols = `auto repeat(${holeCount}, minmax(1.75rem, 1fr)) auto`;
+  // 单一 grid 容器承载表头+数据行：所有行共享同一套列轨道，从根上消除错位。
+  // 洞位列 minmax(0,1fr) 允许收缩 → 390px 视口无需横向滚动。
+  const heatmapCols = `auto repeat(${holeCount}, minmax(0, 1fr)) auto`;
+  // 表头/数据/合计共用同一盒子模型——不一致的 padding/min-width 是列宽错位的根因
+  const heatCell =
+    'flex min-h-6 items-center justify-center rounded px-0.5 py-0.5 text-center text-[10px] tabular-nums leading-none';
 
   return (
     <div className="space-y-6">
       {/* 落点分布：发力 × 洞位矩阵热力图 */}
       <section>
         <h2 className="mb-1 text-sm font-bold">落点分布（发力 × 洞位）</h2>
-        <div className="overflow-x-auto">
-          <div className="min-w-max text-[10px]">
-            {/* 表头：发力档 | 洞位 1..N | 合计 */}
-            <div
-              className="grid items-center gap-0.5"
-              style={{ gridTemplateColumns: heatmapCols }}
-            >
-              <div className="p-1 text-left text-[var(--muted)]">发力</div>
-              {Array.from({ length: holeCount }, (_, i) => (
-                <div key={i} className="min-w-7 p-1 text-center text-[var(--muted)]">
-                  {i + 1}
-                </div>
-              ))}
-              <div className="min-w-7 p-1 text-center text-[var(--muted)]">合计</div>
+        {/* 单 grid：表头与数据行共享列轨道，跨行严格对齐 */}
+        <div
+          className="grid items-center gap-0.5 text-[10px]"
+          style={{ gridTemplateColumns: heatmapCols }}
+        >
+          {/* 第 1 行：表头 */}
+          <div className="px-0.5 py-0.5 text-left text-[var(--muted)]">发力</div>
+          {Array.from({ length: holeCount }, (_, i) => (
+            <div key={`h${i}`} className={`${heatCell} text-[var(--muted)]`}>
+              {i + 1}
             </div>
-            {data.landHoleByPower.map((row) => {
-              // 着色强度按行内最大计数归一（10%-90%）；全 0 行不着色
-              const max = Math.max(0, ...row.holes);
-              return (
+          ))}
+          <div className="px-0.5 py-0.5 text-center text-[var(--muted)]">合计</div>
+
+          {/* 数据行：着色强度按行内最大计数归一（10%-90%）；全 0 行不着色 */}
+          {data.landHoleByPower.map((row) => {
+            const max = Math.max(0, ...row.holes);
+            const label = POWER_LABEL[row.power] ?? row.power;
+            return [
+              <div key={`${row.power}-lbl`} className="whitespace-nowrap px-0.5 py-0.5">
+                {label}
+              </div>,
+              ...row.holes.map((n, i) => (
                 <div
-                  key={row.power}
-                  className="grid items-center gap-0.5"
-                  style={{ gridTemplateColumns: heatmapCols }}
+                  key={`${row.power}-${i}`}
+                  title={`${label} · ${i + 1} 号洞：${n} 局${
+                    row.total > 0 ? `（本档 ${((n / row.total) * 100).toFixed(0)}%）` : ''
+                  }`}
+                  className={`${heatCell} ${
+                    n === 0 ? 'text-[var(--muted)]' : 'text-[var(--fg)]'
+                  }`}
+                  style={{
+                    background:
+                      n > 0 && max > 0
+                        ? `color-mix(in srgb, var(--accent) ${Math.max(10, Math.round((n / max) * 90))}%, var(--surface))`
+                        : 'var(--surface)',
+                  }}
                 >
-                  <div className="whitespace-nowrap p-1">{POWER_LABEL[row.power] ?? row.power}</div>
-                  {row.holes.map((n, i) => (
-                    <div
-                      key={i}
-                      title={`${POWER_LABEL[row.power] ?? row.power} · ${i + 1} 号洞：${n} 局${
-                        row.total > 0 ? `（本档 ${((n / row.total) * 100).toFixed(0)}%）` : ''
-                      }`}
-                      className={`flex min-w-7 items-center justify-center rounded px-1 py-0.5 text-center tabular-nums ${
-                        n === 0 ? 'text-[var(--muted)]' : 'text-[var(--fg)]'
-                      }`}
-                      style={{
-                        background:
-                          n > 0 && max > 0
-                            ? `color-mix(in srgb, var(--accent) ${Math.max(10, Math.round((n / max) * 90))}%, var(--surface))`
-                            : 'var(--surface)',
-                      }}
-                    >
-                      {n > 0 ? n : '·'}
-                    </div>
-                  ))}
-                  <div className="p-1 text-center tabular-nums text-[var(--muted)]">{row.total}</div>
+                  {n > 0 ? n : '·'}
                 </div>
-              );
-            })}
-          </div>
+              )),
+              <div
+                key={`${row.power}-total`}
+                className="px-0.5 py-0.5 text-center tabular-nums text-[var(--muted)]"
+              >
+                {row.total}
+              </div>,
+            ];
+          })}
         </div>
         <p className="mt-1 text-[10px] text-[var(--muted)]">
           行内颜色深 = 该发力档落此洞更多（按行内最大计数归一）；「·」= 尚无记录。

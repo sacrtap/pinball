@@ -134,9 +134,19 @@ Rendering code may format fields, but it must not redefine the payload contract.
 
 ---
 
-## Checklist for Cross-Layer Features
+### Mistake 5: 静默兜底把数据链路断裂伪装成「无数据」
 
-Before implementation:
+**实例**（2026-10-28）：`Round.recommendedPower` 的 schema 列、zod 校验、repo、API route、`backtest()` 算法**六环全部就绪**，唯独录入入口 `EntryWizard.submit()` 从不提交该字段。`backtest()` 的 `if (!rec) continue` 静默跳过所有局 → 统计页「推荐回测」恒显示 n=0 / 三卡全 0。同类：`predictedHitProb` 列曾不存在，`calibration()` 走 `?? globalRate` 常数兜底，校准曲线退化为竖直线。
+
+**为何致命**：兜底分支不抛错、不告警，页面照常渲染出「看起来正常」的统计。用户与开发者都看不出链路断了——**数据缺失与功能损坏呈现同一症状**。
+
+**契约**：新增持久化字段喂给统计/算法函数时，六环必须同步打通（Prisma schema+迁移 → zod schema → repo create → API route 透传 → **录入入口 payload** → 统计页 select/projection）。且必须有一条单测从「构造 payload → POST → 读回 DB」全链路断言字段非空。
+
+**判据**：统计纯函数出现 `?? globalRate` / `if (!x) continue` 这类兜底时，UI 必须如实声明样本来源（如「样本 n = X（仅统计录入时记录了推荐的局）」），不可让兜底数据冒充完整统计。完整契约见 `.trellis/spec/backend/database-guidelines.md`。
+
+---
+
+## Checklist for Cross-Layer Features
 
 - [ ] Mapped the complete data flow
 - [ ] Identified all layer boundaries

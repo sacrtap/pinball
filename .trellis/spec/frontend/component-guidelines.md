@@ -151,6 +151,27 @@ const reward = totalBet * multiplier;          // 整数
 **配套规则**：改任何组件结构/文案后，跑一次**全量** E2E，不能只跑改动的那个
 spec——同文件内的交叉断言就是靠全量运行才暴露的。
 
+### Next15 流式过渡态：断言前必须等 DOM 收敛
+
+**实例**（2026-10-28，连续两次踩中）：`/stats` 页 `loading.tsx` 与真实内容在 RSC
+流式传输期间**短暂并存**——DOM 里同时有两个 `<main>`、两份同名文案（KPI 标签
+「总局数」、空态文案「暂无数据，先录入几局吧。」都各自出现两次）。任何裸文本断言
+（`getByText('总局数')`）都撞 Playwright strict mode violation：`resolved to 2 elements`。
+
+**为什么换文案没用**：第一次失败后把断言从「总局数」换成「暂无数据…」，第二次照样
+挂——两份组件树里**每个**文案都翻倍。这是结构问题，不是选词问题。
+
+**契约**：有 `loading.tsx` 的页面，断言内容前先锚定 DOM 收敛：
+
+```ts
+await expect(page.locator('main')).toHaveCount(1);              // 唯一 main = 过渡态结束
+await expect(page.locator('main[aria-busy="true"]')).toHaveCount(0);
+await expect(page.getByText('暂无数据，先录入几局吧。')).toBeVisible();
+```
+
+**判据**：`expect(...).toBeVisible()` 报 `strict mode violation: resolved to 2 elements`
+且两个元素文本相同 → 几乎必是流式过渡态双树，而非真的重复渲染。先等收敛，别换文案。
+
 ### 浮点重构必须对拍，且中间步骤要一致
 
 **实例**（2026-10-28，`pnlTrend` O(n²)→O(n)）：旧实现
