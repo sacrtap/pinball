@@ -1,0 +1,87 @@
+# ===== 系统与编辑器垃圾文件 =====
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+
+# ===== 日志 =====
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ===== 环境变量与密钥（切勿提交） =====
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.keystore
+
+# ===== 依赖 =====
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# ===== 构建产物 =====
+build/
+dist/
+out/
+.next/
+*.tsbuildinfo
+next-env.d.ts
+coverage/
+.nyc_output/
+
+# ===== 缓存 =====
+.cache/
+.eslintcache
+.npm/
+.turbo/
+*.tgz
+
+# ===== 测试产物 =====
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+.vitest/
+
+# ===== 本地数据库 / Docker 卷 =====
+pgdata/
+*.sqlite
+*.sqlite3
+*.db
+
+# ===== Prisma =====
+# 迁移与 schema 已入库，此处不排除
+
+# ===== 工具与 IDE =====
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# ===== 部署 =====
+.vercel
+
+# ===== 其他临时文件 =====
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
