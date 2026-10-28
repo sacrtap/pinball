@@ -42,7 +42,7 @@ export default async function MachineDetailPage({ params }: { params: Promise<{ 
             {data.sessions.map((s) => (
               <li key={s.id} className="rounded-xl border border-[var(--border)] p-3">
                 <div className="flex items-center justify-between">
-                  <a href={`/session/${s.id}`} className="font-medium">
+                  <a href={`/session/${s.id}/play`} className="font-medium">
                     {new Date(s.startedAt).toLocaleString('zh-CN')}
                   </a>
                   <span className="text-xs text-[var(--muted)]">{s.status === 'active' ? '进行中' : '已关闭'}</span>
