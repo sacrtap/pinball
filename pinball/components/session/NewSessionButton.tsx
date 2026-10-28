@@ -22,7 +22,7 @@ export function NewSessionButton({ machineId }: { machineId: string }) {
   }
 
   return (
-    <TouchButton block onClick={onCreate} disabled={loading}>
+    <TouchButton block onClick={onCreate} loading={loading}>
       {loading ? '创建中…' : '开始新对局'}
     </TouchButton>
   );

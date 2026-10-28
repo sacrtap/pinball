@@ -2,6 +2,7 @@
 
 import { POWER_LEVELS } from '@/lib/rules';
 import type { PowerLevel } from '@/lib/types';
+import { SELECTABLE_ACTIVE, SELECTABLE_BASE, SELECTABLE_IDLE } from '@/components/ui/styles';
 
 const LABELS: Record<PowerLevel, string> = { low: '小力', mid: '中力', high: '大力' };
 
@@ -23,10 +24,9 @@ export function PowerPicker({
           onClick={() => onChange(p)}
           aria-pressed={value === p}
           className={[
-            'relative min-h-20 rounded-2xl border text-lg font-bold transition-transform active:scale-95',
-            value === p
-              ? 'border-transparent bg-[var(--accent)] text-white'
-              : 'border-[var(--border)] bg-[var(--surface)] text-[var(--fg)]',
+            'relative min-h-20 rounded-xl text-lg font-bold',
+            SELECTABLE_BASE,
+            value === p ? SELECTABLE_ACTIVE : SELECTABLE_IDLE,
           ].join(' ')}
         >
           {LABELS[p]}

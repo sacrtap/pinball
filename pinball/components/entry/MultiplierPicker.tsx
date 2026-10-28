@@ -2,6 +2,7 @@
 
 import { MULTIPLIERS } from '@/lib/rules';
 import type { Multiplier } from '@/lib/types';
+import { SELECTABLE_ACTIVE, SELECTABLE_BASE, SELECTABLE_IDLE } from '@/components/ui/styles';
 
 export function MultiplierPicker({
   value,
@@ -19,10 +20,9 @@ export function MultiplierPicker({
           onClick={() => onChange(m)}
           aria-pressed={value === m}
           className={[
-            'min-h-16 rounded-2xl border text-xl font-bold transition-transform active:scale-95',
-            value === m
-              ? 'border-transparent bg-[var(--accent)] text-white'
-              : 'border-[var(--border)] bg-[var(--surface)] text-[var(--fg)]',
+            'min-h-16 rounded-xl text-xl font-bold',
+            SELECTABLE_BASE,
+            value === m ? SELECTABLE_ACTIVE : SELECTABLE_IDLE,
           ].join(' ')}
         >
           {m}×

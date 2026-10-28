@@ -433,11 +433,11 @@ pinball/
 │   ├── (auth)/                # login / register
 │   └── api/                   # auth / machines / sessions / rounds / recommend / montecarlo / export / tenants / account
 ├── components/
-│   ├── entry/                 # EntryWizard / RecommendSheet / MonteCarloPanel / EntrySync
+│   ├── entry/                 # EntryWizard / 选择控件 / EntrySync
 │   ├── machine/               # 机台表单
 │   ├── session/               # 向导与回放组件
 │   ├── stats/                 # StatsCharts
-│   └── ui/                    # TouchButton / DisclaimerBanner / VirtualList
+│   └── ui/                    # TouchButton / Input / Card / styles / DisclaimerBanner
 ├── lib/
 │   ├── auth/                  # Auth.js 配置、密码、OTP、租户解析
 │   ├── db/                    # prisma / tenant(withTenant) / repo / agg-client

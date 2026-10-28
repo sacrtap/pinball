@@ -8,6 +8,7 @@ import {
   chiSquareUniform,
   logLikelihoodRolling,
   powerMultiplierMatrix,
+  pnlTrend,
   type RoundLike,
 } from '@/lib/predict/evaluate';
 import { StatsCharts } from './StatsCharts';
@@ -61,10 +62,7 @@ export default async function StatsPage() {
     logLikelihood: logLikelihoodRolling(typed, null),
     matrix: powerMultiplierMatrix(typed),
     landDist: Array.from({ length: 12 }, (_, i) => typed.filter((r) => r.landHole === i + 1).length),
-    pnlTrend: typed.map((r, i) => ({
-      round: i + 1,
-      pnl: typed.slice(0, i + 1).reduce((s, x) => s + x.reward - x.totalBet, 0),
-    })),
+    pnlTrend: pnlTrend(typed),
   };
 
   return (

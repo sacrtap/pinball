@@ -42,13 +42,18 @@ test.describe('录入流', () => {
         await page.click(`button[aria-label="亮灯 ${hole} 号洞"]`);
       }
       await page.click('button:has-text("确定")'); // → 发力与加注（亮灯选满后显式确认）
-      await expect(page.locator('text=2/3 发力与加注')).toBeVisible({ timeout: 10_000 });
+      // 步骤断言用「当前步骤独有控件」而非标题文本：afe0758 删掉 "N/3 标题" 后
+      // 旧标题断言全部失效（漂移），控件存在性同时验证了步骤与渲染完整性
+      // step1 独有：加注数字键盘（step0/step2 均不存在）
+      await expect(page.locator('button[aria-label="清空"]')).toBeVisible({ timeout: 10_000 });
       await page.click('button:has-text("小力")');
-      await expect(page.locator('text=3/3 落点与提交')).toBeVisible();
+      // step2 独有：落点态洞位板（aria-label 前缀「落点」）
+      await expect(page.locator('button[aria-label="落点 3 号洞"]')).toBeVisible();
       await page.click('button[aria-label="落点 3 号洞"]');
       await expect(page.locator('text=命中')).toBeVisible();
       await page.click('button:has-text("提交本局")');
-      await expect(page.locator('text=1/3 倍率与亮灯')).toBeVisible({ timeout: 10_000 });
+      // 软重置回 step0：亮灯态洞位板重新出现
+      await expect(page.locator('button[aria-label="亮灯 1 号洞"]')).toBeVisible({ timeout: 10_000 });
     }
 
     // 校验累计：3 局（Stat 结构：label 文本节点的下一个兄弟 div）
@@ -83,13 +88,13 @@ test.describe('录入流', () => {
         await page.click(`button[aria-label="亮灯 ${hole} 号洞"]`);
       }
       await page.click('button:has-text("确定")');
-      await expect(page.locator('text=2/3 发力与加注')).toBeVisible({ timeout: 10_000 });
+      await expect(page.locator('button[aria-label="清空"]')).toBeVisible({ timeout: 10_000 });
       await page.click('button:has-text("小力")');
-      await expect(page.locator('text=3/3 落点与提交')).toBeVisible();
+      await expect(page.locator('button[aria-label="落点 3 号洞"]')).toBeVisible();
       await page.click('button[aria-label="落点 3 号洞"]');
       await expect(page.locator('text=命中')).toBeVisible();
       await page.click('button:has-text("提交本局")');
-      await expect(page.locator('text=1/3 倍率与亮灯')).toBeVisible({ timeout: 10_000 });
+      await expect(page.locator('button[aria-label="亮灯 1 号洞"]')).toBeVisible({ timeout: 10_000 });
     }
 
     // 暂存提示
@@ -130,11 +135,11 @@ test.describe('录入流', () => {
       await page.click(`button[aria-label="亮灯 ${hole} 号洞"]`);
     }
     await page.click('button:has-text("确定")');
-    await expect(page.locator('text=2/3 发力与加注')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('button[aria-label="清空"]')).toBeVisible({ timeout: 10_000 });
 
     // step1 点「上一步」→ 必须停留 step0（曾因亮灯仍满被 effect 弹回）
     await page.click('button:has-text("上一步")');
-    await expect(page.locator('text=1/3 倍率与亮灯')).toBeVisible();
+    await expect(page.locator('button[aria-label="清空"]')).toHaveCount(0); // step1 控件已消失
     await expect(page.locator('text=选择 5 个亮灯通道（已选 5/5）')).toBeVisible();
     await expect(page.locator('button[aria-label="亮灯 1 号洞"][aria-pressed="true"]')).toBeVisible();
     await expect(page.locator('button:has-text("2×")[aria-pressed="true"]')).toBeVisible();
@@ -146,6 +151,6 @@ test.describe('录入流', () => {
 
     // 再点「确定」→ 回到 step1
     await page.click('button:has-text("确定")');
-    await expect(page.locator('text=2/3 发力与加注')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('button[aria-label="清空"]')).toBeVisible({ timeout: 10_000 });
   });
 });
