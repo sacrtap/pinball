@@ -373,14 +373,16 @@ pinball/
 │   ├── (app)/                 # 已登录页面
 │   │   ├── page.tsx           # 机台列表
 │   │   ├── machine/[id]/      # 机台详情
+│   │   ├── machine/new/       # 新建机台
 │   │   ├── session/[id]/play/ # 录入向导
-│   │   ├── session/[id]/summary/
 │   │   ├── stats/             # 复盘统计（RSC + Recharts）
 │   │   └── settings/          # 租户/成员/导出/注销
-│   ├── (auth)/                # login / register / verify-otp
+│   ├── (auth)/                # login / register
 │   └── api/                   # auth / machines / sessions / rounds / recommend / montecarlo / export / tenants / account
 ├── components/
 │   ├── entry/                 # EntryWizard / RecommendSheet / MonteCarloPanel / EntrySync
+│   ├── machine/               # 机台表单
+│   ├── session/               # 向导与回放组件
 │   ├── stats/                 # StatsCharts
 │   └── ui/                    # TouchButton / DisclaimerBanner / VirtualList
 ├── lib/
@@ -389,10 +391,13 @@ pinball/
 │   ├── predict/               # posterior / bandit / pooling / montecarlo / evaluate
 │   ├── queue/                 # redis / montecarlo-worker
 │   ├── offline/outbox.ts      # 离线队列
+│   ├── stores/                # Zustand 客户端状态
 │   ├── audit.ts               # 审计
+│   ├── labels.ts              # 展示文案常量
 │   ├── rate-limit.ts          # Redis 滑动窗口
 │   ├── rules.ts               # 业务规则常量单一来源
-│   └── schemas.ts             # zod 校验
+│   ├── schemas.ts             # zod 校验
+│   └── types.ts               # 共享类型
 ├── prisma/
 │   ├── schema.prisma          # 16 个模型
 │   ├── migrations/            # init + rls_policies

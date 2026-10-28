@@ -4,6 +4,7 @@ import Google from 'next-auth/providers/google';
 import GitHub from 'next-auth/providers/github';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import { prisma } from '@/lib/db/prisma';
+import { withTenant } from '@/lib/db/tenant';
 import { verifyPassword } from '@/lib/auth/password';
 import { loginRateLimit } from '@/lib/rate-limit';
 import { getTenantIdForUser } from '@/lib/auth/tenant-resolve';
@@ -46,13 +47,15 @@ const providers: Provider[] = [
       if (!(await verifyPassword(user.passwordHash, password))) return null;
 
       // 审计登录成功（独立事务，失败不影响登录）
+      // AuditLog 启用了 FORCE ROW LEVEL SECURITY，必须经 withTenant 设置
+      // app.current_tenant 才能写入；直连 prisma 会被 policy 拦下。
       const membership = await prisma.membership.findFirst({ where: { userId: user.id } });
       if (membership) {
-        await prisma.auditLog
-          .create({
+        await withTenant(membership.tenantId, (tx) =>
+          tx.auditLog.create({
             data: { tenantId: membership.tenantId, userId: user.id, action: 'login' },
-          })
-          .catch(() => {});
+          }),
+        ).catch(() => {});
       }
       return { id: user.id, email: user.email };
     },
