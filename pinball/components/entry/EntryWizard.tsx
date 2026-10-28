@@ -155,6 +155,7 @@ export function EntryWizard({
         <>
           <p className="text-sm text-[var(--muted)]">
             选择 {litMax} 个亮灯通道（已选 {litHoles.length}/{litMax}）
+            {litHoles.length === litMax && ' · 已选满，取消已选可更换'}
           </p>
           <HoleBoard
             mode="lit"
