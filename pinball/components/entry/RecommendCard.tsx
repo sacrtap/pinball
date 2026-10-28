@@ -19,7 +19,7 @@ export interface Recommendation {
 
 /**
  * step1 置顶推荐卡（常驻，非抽屉）：
- * 推荐档位 + 三档概率 + 亮灯联合命中/期望返还（与概率条同行）+ 12 通道热力条（红点标亮灯）。
+ * 推荐档位 + 三档概率 + 亮灯联合命中/中奖奖励（与概率条同行）+ 12 通道热力条（红点标亮灯）。
  */
 export function RecommendCard({
   data,
@@ -35,8 +35,9 @@ export function RecommendCard({
   const probs = data.channelProb ?? data.prior?.channelProb ?? [];
   const maxP = Math.max(...probs, 1e-9);
   const hitProb = data.litHitProb ?? 0;
-  // 期望返还随加注实时变化；后端预取未带 totalBet，故前端按当前投注计算
-  const expectedReturn = hitProb * totalBet * multiplier;
+  // 「返还」展示中奖奖励（投入×倍率，整数珠数）——单局只有中奖/不中奖两种结果，
+  // 奖励是离散值而非概率加权期望，避免小数让用户困惑。
+  const reward = totalBet * multiplier;
 
   return (
     <section
@@ -97,8 +98,8 @@ export function RecommendCard({
             <dd className="text-sm font-bold tabular-nums">{(hitProb * 100).toFixed(1)}%</dd>
           </div>
           <div>
-            <dt className="text-[10px] text-[var(--muted)]">返还</dt>
-            <dd className="text-sm font-bold tabular-nums">{expectedReturn.toFixed(1)}</dd>
+            <dt className="text-[10px] text-[var(--muted)]">中奖</dt>
+            <dd className="text-sm font-bold tabular-nums">{reward}</dd>
           </div>
         </dl>
       </div>
