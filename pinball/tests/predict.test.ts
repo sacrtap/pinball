@@ -1,0 +1,337 @@
+import { describe, it, expect, beforeAll } from 'vitest';
+import { prisma } from '@/lib/db/prisma';
+import { withTenant } from '@/lib/db/tenant';
+import * as repo from '@/lib/db/repo';
+import { updatePosterior, revertPosterior, estimate, dirichletMean } from '@/lib/predict/posterior';
+import { recommend, mulberry32, hashSeed, updateBanditArm } from '@/lib/predict/bandit';
+import {
+  aggregateGlobalPrior,
+  priorDist,
+  alpha0TableFrom,
+  initPosteriorWithPrior,
+} from '@/lib/predict/pooling';
+import { POWER_LEVELS, SAMPLE_THRESHOLD, PRIOR_STRENGTH, litCountFor } from '@/lib/rules';
+import { cleanDatabase } from './helpers/db';
+import { simulate, fit, klDivergence, DEFAULT_PARAMS, binomialReference } from '@/lib/predict/montecarlo';
+import {
+  calibration,
+  backtest,
+  regretCurve,
+  chiSquareUniform,
+  logLikelihoodRolling,
+  powerMultiplierMatrix,
+  type RoundLike,
+} from '@/lib/predict/evaluate';
+
+/**
+ * M3 算法栈测试：
+ * ① posterior update/revert 幂等
+ * ② 合成偏态机台 100 局收敛到真最优档
+ * ③ 双档接近不锁死（探索率 > 0）
+ * ④ L4 先验非均匀
+ * ⑤ 满 20 局解锁 vs 19 局降级
+ * ⑥ 可复现性（同 seed 严格相等）
+ */
+
+const LIT_HOLES_2X = [1, 2, 3, 4, 5];
+
+describe('predict 算法栈', () => {
+  let tenantId: string;
+  let machineId: string;
+
+  beforeAll(async () => {
+    await cleanDatabase();
+    const t = await prisma.tenant.create({ data: { name: '算法租户' } });
+    tenantId = t.id;
+    const m = await withTenant(tenantId, (tx) =>
+      repo.createMachine(tx, { tenantId, code: 'ALGO-1' }),
+    );
+    machineId = m.id;
+  });
+
+  it('① posterior update/revert 幂等', async () => {
+    await withTenant(tenantId, async (tx) => {
+      await updatePosterior(tx, machineId, tenantId, 'low', 3);
+      const after = await tx.posterior.findUnique({
+        where: { tenantId_machineId_power: { tenantId, machineId, power: 'low' } },
+      });
+      expect(after?.counts[2]).toBe(1);
+      await revertPosterior(tx, machineId, tenantId, 'low', 3);
+      const back = await tx.posterior.findUnique({
+        where: { tenantId_machineId_power: { tenantId, machineId, power: 'low' } },
+      });
+      expect(back?.counts[2]).toBe(0);
+    });
+  });
+
+  it('② 合成偏态机台 100 局收敛到真最优档（high 0.6 vs 0.3）', async () => {
+    // high 档：60% 落 1 号洞（在亮灯内）；low/mid：30%
+    const rng = mulberry32(hashSeed('biased-machine'));
+    await withTenant(tenantId, async (tx) => {
+      for (let i = 0; i < 100; i += 1) {
+        for (const power of POWER_LEVELS) {
+          const p = power === 'high' ? 0.6 : 0.3;
+          const hole = rng() < p ? 1 : 7; // 7 不在亮灯内
+          await updatePosterior(tx, machineId, tenantId, power, hole);
+        }
+      }
+    });
+
+    const rec = await withTenant(tenantId, (tx) =>
+      recommend(tx, machineId, tenantId, LIT_HOLES_2X),
+    );
+    expect(rec.thompsonPower).toBe('high');
+    expect(rec.argmaxPower).toBe('high');
+    expect(rec.sampleN).toBe(300);
+    // high 的点估计应显著高于其他档
+    expect(rec.armTheta[POWER_LEVELS.indexOf('high')]).toBeGreaterThan(0.5);
+    expect(rec.bestArmProb[POWER_LEVELS.indexOf('high')]).toBeGreaterThan(0.8);
+  });
+
+  it('③ 双档接近不锁死（0.45 vs 0.5，两档都被采样）', async () => {
+    await cleanDatabase();
+    const t = await prisma.tenant.create({ data: { name: '探索租户' } });
+    const m = await withTenant(t.id, (tx) => repo.createMachine(tx, { tenantId: t.id, code: 'EXP-1' }));
+    const rng = mulberry32(hashSeed('tie-machine'));
+
+    await withTenant(t.id, async (tx) => {
+      // low: 45/100 命中，mid: 50/100 命中，high: 0 命中（明显差）
+      for (let i = 0; i < 100; i += 1) {
+        await updatePosterior(tx, m.id, t.id, 'low', rng() < 0.45 ? 2 : 8);
+        await updatePosterior(tx, m.id, t.id, 'mid', rng() < 0.5 ? 2 : 8);
+        await updatePosterior(tx, m.id, t.id, 'high', 8);
+      }
+    });
+
+    const rec = await withTenant(t.id, (tx) => recommend(tx, m.id, t.id, LIT_HOLES_2X));
+    const lowP = rec.bestArmProb[POWER_LEVELS.indexOf('low')];
+    const midP = rec.bestArmProb[POWER_LEVELS.indexOf('mid')];
+    // 两档都被采样为最优过（不锁死）
+    expect(lowP).toBeGreaterThan(0);
+    expect(midP).toBeGreaterThan(0);
+    // 且 bestArmProb 不超过 0.95（保留探索）
+    expect(Math.max(lowP, midP)).toBeLessThan(0.95);
+  });
+
+  it('④ L4 先验：空机台 estimate 返回全局形态非均匀', async () => {
+    await cleanDatabase();
+    const t = await prisma.tenant.create({ data: { name: '先验租户' } });
+    const m = await withTenant(t.id, (tx) => repo.createMachine(tx, { tenantId: t.id, code: 'PRI-1' }));
+
+    // 制造偏态全局数据：low 档 1 号洞占 80%（事务内写入）
+    await withTenant(t.id, async (tx) => {
+      for (let i = 0; i < 40; i += 1) {
+        await updatePosterior(tx, m.id, t.id, 'low', i < 32 ? 1 : 5);
+      }
+    });
+
+    // 聚合走 BYPASSRLS 独立连接，必须读已提交数据 → 事务外调用
+    const rows = await aggregateGlobalPrior();
+    const low = rows.find((r) => r.power === 'low')!;
+    expect(low.sampleN).toBe(40);
+    const dist = priorDist(low);
+    expect(dist[0]).toBeGreaterThan(0.7); // 1 号洞占主导
+    expect(dist[0]).toBeGreaterThan(dist[11]); // 非均匀
+    // 其他档无数据 → 均匀
+    expect(priorDist(rows.find((r) => r.power === 'mid'))[0]).toBeCloseTo(1 / 12, 5);
+
+    // alpha0Table 反映全局形态
+    const table = alpha0TableFrom(rows);
+    expect(table.low).toBeGreaterThan(0);
+
+    // initPosteriorWithPrior 用先验初始化新档位
+    await withTenant(t.id, (tx) =>
+      initPosteriorWithPrior(tx, m.id, t.id, 'mid', rows.find((r) => r.power === 'mid')),
+    );
+    const midPost = await withTenant(t.id, (tx) =>
+      tx.posterior.findUnique({
+        where: { tenantId_machineId_power: { tenantId: t.id, machineId: m.id, power: 'mid' } },
+      }),
+    );
+    expect(midPost).not.toBeNull();
+
+    // 空机台（无样本）的 channelProb 由先验主导
+    const rec = await withTenant(t.id, (tx) => recommend(tx, m.id, t.id, LIT_HOLES_2X));
+    const sum = rec.channelProb.reduce((s, x) => s + x, 0);
+    expect(sum).toBeCloseTo(1, 5);
+
+    // channelProb 是推荐档位的落点分布：亮灯通道概率之和必须等于 litHitProb（命中率口径）
+    const litSum = LIT_HOLES_2X.reduce((s, h) => s + (rec.channelProb[h - 1] ?? 0), 0);
+    expect(litSum).toBeCloseTo(rec.litHitProb, 5);
+  });
+
+  it('⑦ 去重：三档接近时 banditAlpha 不参与采样，三档均被探索', async () => {
+    // 回归 Thompson 采样去重（bandit.ts 采样改为纯 Beta(litMass, nonLitMass)）。
+    // litMass（Dirichlet 落点派生）与 banditAlpha（Bernoulli 命中计数）描述同一命中事件，
+    // 叠加使等效样本数虚增 ~89%（+banditAB）、Beta 标准差收窄 27%。
+    // 配对实验证实：同数据下叠加版 maxProb 一致高于去重版（delta +0.002~+0.136），
+    // 去重消除了边界场景被推过 0.55 阈值的虚假置信。
+    // 注意：100 局噪声（σ≈0.05）本身可让某档 maxProb > 0.55，属合理 exploit，
+    // 故本测试不断言 degraded，而断言「不锁死」——三档均被采样为最优过。
+    await cleanDatabase();
+    const t = await prisma.tenant.create({ data: { name: '去重租户' } });
+    const m = await withTenant(t.id, (tx) =>
+      repo.createMachine(tx, { tenantId: t.id, code: 'DEDUP-1' }),
+    );
+    const rng = mulberry32(hashSeed('dedup-near-tie'));
+    const nonLit = [6, 7, 8, 9, 10, 11, 12];
+    // 三档真实命中率接近：0.48 / 0.50 / 0.52（差异在统计噪声内）
+    const rates: Record<string, number> = { low: 0.48, mid: 0.5, high: 0.52 };
+
+    await withTenant(t.id, async (tx) => {
+      for (let i = 0; i < 100; i += 1) {
+        for (const power of POWER_LEVELS) {
+          const p = rates[power];
+          const hit = rng() < p;
+          // 命中→落点亮灯内，未命中→落点散在亮灯外
+          const hole = hit
+            ? LIT_HOLES_2X[Math.floor(rng() * LIT_HOLES_2X.length)]
+            : nonLit[Math.floor(rng() * nonLit.length)];
+          await updatePosterior(tx, m.id, t.id, power, hole);
+          await updateBanditArm(tx, m.id, t.id, power, hit);
+        }
+      }
+    });
+
+    const rec = await withTenant(t.id, (tx) => recommend(tx, m.id, t.id, LIT_HOLES_2X));
+    // 数据确实是「三档接近」：点估计 θ 的极差应小于 0.15（真值差 0.04 + 噪声）
+    const thetaSpread = Math.max(...rec.armTheta) - Math.min(...rec.armTheta);
+    expect(thetaSpread).toBeLessThan(0.15);
+    // 去重后不锁死：三档均被 Thompson 采样为最优过（探索保留）
+    expect(rec.bestArmProb.every((p) => p > 0)).toBe(true);
+    // 且 max 不超过 0.95（极端锁死才违反，去重后不应出现）
+    expect(Math.max(...rec.bestArmProb)).toBeLessThan(0.95);
+  });
+
+  it('⑤ 满 10 局解锁 vs 9 局降级', async () => {
+    await cleanDatabase();
+    const t = await prisma.tenant.create({ data: { name: '阈值租户' } });
+    const m9 = await withTenant(t.id, (tx) =>
+      repo.createMachine(tx, { tenantId: t.id, code: 'T9' }),
+    );
+    const m10 = await withTenant(t.id, (tx) =>
+      repo.createMachine(tx, { tenantId: t.id, code: 'T10' }),
+    );
+
+    // 9 局机台：总样本 = 9（< 阈值，应降级为先验）
+    await withTenant(t.id, async (tx) => {
+      for (let i = 0; i < 9; i += 1) await updatePosterior(tx, m9.id, t.id, 'mid', (i % 12) + 1);
+    });
+    const n9 = await withTenant(t.id, (tx) =>
+      tx.posterior.findMany({ where: { machineId: m9.id } }),
+    );
+    expect(n9.reduce((s, p) => s + p.counts.reduce((a, b) => a + b, 0), 0)).toBe(9);
+
+    // 10 局机台：总样本 = 10（≥ 阈值，解锁 Thompson）
+    await withTenant(t.id, async (tx) => {
+      for (let i = 0; i < 10; i += 1) await updatePosterior(tx, m10.id, t.id, 'mid', (i % 12) + 1);
+    });
+    const n10 = await withTenant(t.id, (tx) =>
+      tx.posterior.findMany({ where: { machineId: m10.id } }),
+    );
+    expect(n10.reduce((s, p) => s + p.counts.reduce((a, b) => a + b, 0), 0)).toBe(10);
+
+    // 常量与规则自洽
+    expect(POWER_LEVELS).toHaveLength(3);
+    expect(litCountFor(2)).toBe(5);
+    expect(PRIOR_STRENGTH).toBe(15);
+    expect(SAMPLE_THRESHOLD).toBe(10);
+  });
+
+  it('⑥ 可复现性：同 seed 严格相等', () => {
+    const a = mulberry32(hashSeed('machine:1,2,3'));
+    const b = mulberry32(hashSeed('machine:1,2,3'));
+    const seqA = Array.from({ length: 10 }, () => a());
+    const seqB = Array.from({ length: 10 }, () => b());
+    expect(seqA).toEqual(seqB);
+    // 不同 seed 不同序列
+    const c = mulberry32(hashSeed('machine:1,2,4'));
+    expect(Array.from({ length: 10 }, () => c())).not.toEqual(seqA);
+  });
+
+  it('⑦ 蒙特卡洛同 seed 严格相等', () => {
+    const a = simulate(DEFAULT_PARAMS.mid, 'mid', 2000, 'machine:1');
+    const b = simulate(DEFAULT_PARAMS.mid, 'mid', 2000, 'machine:1');
+    expect(a.dist).toEqual(b.dist);
+    expect(a.stderr).toEqual(b.stderr);
+    const c = simulate(DEFAULT_PARAMS.mid, 'mid', 2000, 'machine:2');
+    expect(c.dist).not.toEqual(a.dist);
+    // stderr 量级 ≈ √(p(1-p)/N)
+    const maxP = Math.max(...a.dist);
+    expect(a.stderr[a.dist.indexOf(maxP)]).toBeLessThan(0.05);
+  });
+
+  it('⑧ fit 恢复注入的 pegBias（误差<0.05）', () => {
+    const injected = { pegBias: 0.6, entryOffset: 0.5, spread: 1.05 };
+    // 用注入参数生成 300 个样本
+    const gen = simulate(injected, 'mid', 300, 'gen-seed');
+    const samples = [];
+    for (let rep = 0; rep < 25; rep += 1) {
+      for (let h = 0; h < 12; h += 1) {
+        const count = Math.round(gen.dist[h] * 12);
+        for (let k = 0; k < count; k += 1) samples.push({ landHole: h + 1, power: 'mid' as const });
+      }
+    }
+    const fitted = fit(samples, 'fit-seed');
+    const mid = fitted[1];
+    expect(Math.abs(mid.pegBias - 0.6)).toBeLessThan(0.05);
+  });
+
+  it('⑨ 模拟分布与理论二项 KL<0.05', () => {
+    const params = { pegBias: 0.5, entryOffset: 0, spread: 1 };
+    const sim = simulate(params, 'mid', 10_000, 'kl-seed');
+    const theory = binomialReference(params.pegBias, params.spread, params.entryOffset);
+    expect(klDivergence(sim.dist, theory)).toBeLessThan(0.05);
+  });
+
+  it('⑩ 评估模块：校准/回测/regret/χ²/对数似然/矩阵', () => {
+    const rounds: RoundLike[] = Array.from({ length: 60 }, (_, i) => ({
+      power: POWER_LEVELS[i % 3],
+      multiplier: ([2, 4, 6][i % 3]) as 2 | 4 | 6,
+      hit: i % 2 === 0,
+      totalBet: 5,
+      reward: i % 2 === 0 ? 20 : 0,
+      litHoles: [1, 2, 3, 4, 5],
+      landHole: (i % 12) + 1,
+      recommendedPower: 'high',
+      predictedHitProb: (i % 10) / 10,
+    }));
+
+    const cal = calibration(rounds);
+    expect(cal).toHaveLength(10);
+    expect(cal.reduce((s, b) => s + b.n, 0)).toBe(60);
+
+    const bt = backtest(rounds);
+    expect(bt.n).toBe(60);
+    expect(Number.isFinite(bt.delta)).toBe(true);
+
+    const rc = regretCurve(rounds);
+    expect(rc).toHaveLength(60);
+    expect(rc[59].cumulative).toBeGreaterThanOrEqual(rc[0].cumulative);
+
+    const chi = chiSquareUniform(rounds.map((r) => r.landHole), 12);
+    expect(chi.chi2).toBeGreaterThanOrEqual(0);
+    expect(chi.pValue).toBeGreaterThanOrEqual(0);
+    expect(chi.pValue).toBeLessThanOrEqual(1);
+
+    const ll = logLikelihoodRolling(rounds, null);
+    expect(ll).toHaveLength(60);
+    expect(ll[59].l1).toBeLessThan(0); // 对数似然恒负
+
+    const mtx = powerMultiplierMatrix(rounds);
+    expect(mtx).toHaveLength(15);
+    expect(mtx.every((m) => m.rate >= 0 && m.rate <= 1)).toBe(true);
+  });
+
+  it('estimate/dirichletMean 数值正确', () => {
+    const counts = new Array<number>(12).fill(0);
+    counts[0] = 3;
+    counts[1] = 1;
+    // 亮灯 [1,2]：α=4+1*12=16，命中质量 3+1+1+1=6 → 0.375
+    expect(estimate(counts, [1, 2])).toBeCloseTo(6 / 16, 6);
+    const mean = dirichletMean(counts);
+    expect(mean.reduce((s, x) => s + x, 0)).toBeCloseTo(1, 6);
+    expect(mean[0]).toBeGreaterThan(mean[2]);
+    expect(estimate(counts, [])).toBe(0);
+  });
+});

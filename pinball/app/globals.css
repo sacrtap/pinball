@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/* 主题变量：与阅读端主题映射一致，禁硬编码颜色散落组件 */
+:root {
+  --surface: #f6f7f9;
+  --fg: #171717;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #4f46e5;
+  --success: #16a34a;
+  --warning: #d97706;
+  --error: #dc2626;
+  --c1: #6366f1;
+  --c2: #0ea5e9;
+  --c3: #10b981;
+  --c4: #f59e0b;
+  --c5: #ef4444;
+  --c6: #8b5cf6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #0b0d12;
+    --fg: #ededed;
+    --muted: #9ca3af;
+    --border: #1f2937;
+    --accent: #818cf8;
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --error: #f87171;
+  }
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+}
+
+body {
+  background: var(--surface);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 移动端优先：控件 ≥48px；安全区适配 360–430px */
+@layer base {
+  button, a {
+    touch-action: manipulation;
+  }
+}

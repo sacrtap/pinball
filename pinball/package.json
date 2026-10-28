@@ -1,0 +1,59 @@
+{
+  "name": "pinball",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 8477",
+    "build": "next build",
+    "start": "next start -p 8477",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "worker": "tsx lib/queue/montecarlo-worker.ts",
+    "prisma:seed": "prisma db seed",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@auth/prisma-adapter": "2.11.3",
+    "@prisma/client": "6.19.3",
+    "@tanstack/react-virtual": "^3.14.23",
+    "argon2": "^0.45.1",
+    "bullmq": "^6.5.0",
+    "ioredis": "^6.0.0",
+    "lucide-react": "^1.62.0",
+    "next": "15.5.28",
+    "next-auth": "5.0.0-beta.32",
+    "nodemailer": "^8.0.11",
+    "pg": "^8.23.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "recharts": "^3.10.1",
+    "resend": "^6.35.0",
+    "seedrandom": "^3.0.5",
+    "zod": "^4.6.7",
+    "zustand": "^5.0.16"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@playwright/test": "1.64.1",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^24.19.2",
+    "@types/nodemailer": "8.0.2",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/seedrandom": "3.0.8",
+    "@vitejs/plugin-react": "6.1.2",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.28",
+    "prisma": "6.19.3",
+    "tailwindcss": "^4",
+    "tsx": "4.23.15",
+    "typescript": "^5",
+    "vitest": "5.0.5"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

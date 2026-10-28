@@ -1,0 +1,17 @@
+# pnpm ≥ 10 的构建脚本白名单（替代旧版 package.json 的 pnpm.onlyBuiltDependencies）。
+# 这些包的安装后脚本必须执行：prisma client 生成、argon2/esbuild/msgpackr-extract
+# 原生编译、unrs-resolver 供 eslint 使用。缺任一项都会导致启动失败。
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  argon2: true
+  esbuild: true
+  msgpackr-extract: true
+  prisma: true
+  unrs-resolver: true
+
+# 显式声明不使用发布年龄门禁，避免 pnpm 自动向此列表追加条目。
+minimumReleaseAge: 0
+minimumReleaseAgeExclude:
+  - lucide-react@1.62.0
+  - resend@6.35.0
