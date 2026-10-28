@@ -57,9 +57,12 @@ test.describe('账号与响应性', () => {
 
     await page.goto('/stats');
     await expect(page.getByRole('heading', { name: '复盘统计' })).toBeVisible();
-    // 数据区渲染完成（KPI 出现即证明 RSC 流结束；空数据下 StatsCharts 显示引导文案）
-    await expect(page.getByText('总局数')).toBeVisible();
+    // Next15 流式过渡态：loading 骨架与真实内容短暂并存（两个 <main>，
+    // 两份同名文案）。任何裸文本断言都会撞 strict mode violation。
+    // 稳定锚点是「DOM 收敛到唯一 main」——先等它，再断言内容。
+    await expect(page.locator('main')).toHaveCount(1);
     await expect(page.locator('main[aria-busy="true"]')).toHaveCount(0);
+    await expect(page.getByText('暂无数据，先录入几局吧。')).toBeVisible();
   });
 
   test('删除机台双击确认只发 1 次 DELETE', async ({ page, request }) => {

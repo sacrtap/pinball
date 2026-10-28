@@ -77,6 +77,10 @@ export async function closeSession(tx: PrismaTransaction, id: string): Promise<S
 
 // ---------------------------------------------------------------- Round
 
+/**
+ * 单局创建。data 原样透传给 Prisma：recommendedPower / recommendMode /
+ * predictedHitProb 由路由层填入（缺省 null），仓储不做语义解释。
+ */
 export async function createRound(
   tx: PrismaTransaction,
   data: Record<string, unknown>,

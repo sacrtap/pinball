@@ -56,6 +56,8 @@ export async function POST(request: Request) {
       cardIssued,
       recommendedPower: input.recommendedPower ?? null,
       recommendMode: input.recommendMode ?? null,
+      // 录入时点的推荐命中概率（校准曲线输入；历史局/无推荐为 null）
+      predictedHitProb: input.predictedHitProb ?? null,
       clientRequestId: input.clientRequestId,
     });
 

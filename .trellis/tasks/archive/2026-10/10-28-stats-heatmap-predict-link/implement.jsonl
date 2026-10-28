@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "UI 基元契约与 styles.ts 复用要求"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "测试约定：E2E 全量、边界禁用、环境陷阱表"}
+{"file": "pinball/lib/predict/evaluate.ts", "reason": "聚合函数单一来源，新聚合落此文件"}
+{"file": "pinball/app/(app)/stats/StatsCharts.tsx", "reason": "落点区块改造目标与既有矩阵表格着色模式"}
+{"file": "pinball/components/entry/EntryWizard.tsx", "reason": "录入 payload 构造点与 recommend 预取逻辑"}
+{"file": "pinball/lib/schemas.ts", "reason": "Round schema 字段扩展点"}

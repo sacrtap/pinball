@@ -7,6 +7,7 @@ import {
   regretCurve,
   chiSquareUniform,
   logLikelihoodRolling,
+  landHoleByPower,
   powerMultiplierMatrix,
   pnlTrend,
   type RoundLike,
@@ -31,6 +32,7 @@ export default async function StatsPage() {
         litHoles: true,
         landHole: true,
         recommendedPower: true,
+        predictedHitProb: true,
         createdAt: true,
       },
     }),
@@ -45,6 +47,7 @@ export default async function StatsPage() {
     litHoles: r.litHoles,
     landHole: r.landHole,
     recommendedPower: (r.recommendedPower as RoundLike['power'] | null) ?? null,
+    predictedHitProb: r.predictedHitProb,
   }));
 
   const data = {
@@ -62,6 +65,8 @@ export default async function StatsPage() {
     logLikelihood: logLikelihoodRolling(typed, null),
     matrix: powerMultiplierMatrix(typed),
     landDist: Array.from({ length: 12 }, (_, i) => typed.filter((r) => r.landHole === i + 1).length),
+    /** 发力 × 洞位落点计数矩阵（3 档 × 12 洞，固定顺序，缺失补 0） */
+    landHoleByPower: landHoleByPower(typed, 12),
     pnlTrend: pnlTrend(typed),
   };
 
