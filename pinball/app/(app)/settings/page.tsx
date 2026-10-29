@@ -160,16 +160,19 @@ export default function SettingsPage() {
           </Card>
         ))}
         <div className="flex items-center gap-2">
-          <Input
-            value={newTeam}
-            onChange={(e) => setNewTeam(e.target.value)}
-            placeholder="新团队名称"
-            aria-label="新团队名称"
-          />
+          <div className="min-w-0 flex-1">
+            <Input
+              value={newTeam}
+              onChange={(e) => setNewTeam(e.target.value)}
+              placeholder="新团队名称"
+              aria-label="新团队名称"
+            />
+          </div>
           <TouchButton
             disabled={busy || !newTeam.trim()}
             onClick={() => void createTeam()}
             loading={busy}
+            className="shrink-0"
           >
             创建团队
           </TouchButton>
@@ -194,18 +197,20 @@ export default function SettingsPage() {
             </Card>
           ))}
           <div className="flex items-center gap-2">
-            <Input
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="邀请邮箱"
-              aria-label="邀请邮箱"
-            />
+            <div className="min-w-0 flex-1">
+              <Input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="邀请邮箱"
+                aria-label="邀请邮箱"
+              />
+            </div>
             <TouchButton
-              variant="secondary"
               disabled={busy || !inviteEmail.trim()}
               onClick={() => void invite()}
               loading={busy}
+              className="shrink-0"
             >
               邀请
             </TouchButton>

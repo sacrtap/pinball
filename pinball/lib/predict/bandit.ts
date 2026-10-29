@@ -91,55 +91,47 @@ function normalQuantileFromRng(rng: () => number): number {
 
 const SAMPLE_K = THOMPSON_SAMPLES;
 
+/** recommendFromCounts 的单臂输入：该档已知的后验 counts */
+export interface ArmCountsInput {
+  power: PowerLevel;
+  counts: number[];
+}
+
 /**
- * Thompson 采样推荐。读三档 BanditArm + Posterior，
- * 每臂诱导 Beta(Σ_{h∈L}α_h, Σ_{h∉L}α_h)，K=2000 次采样统计最优频率。
+ * 纯函数版推荐：输入已知的每档 counts 数组，跳过 DB 读，
+ * 直接跑 Thompson 采样。与 recommend() 同 seed、同采样逻辑、可复现。
+ * 供回填脚本滚动重放使用——避免在重放中真的写 Posterior 污染当前统计。
  */
-export async function recommend(
-  tx: PrismaTransaction,
+export function recommendFromCounts(
   machineId: string,
-  tenantId: string,
   litHoles: number[],
+  armsInput: ArmCountsInput[],
   opts: { totalBet?: number; multiplier?: number; alpha0Table?: Alpha0Table } = {},
-): Promise<RecommendResult> {
+): RecommendResult {
   const totalBet = opts.totalBet ?? 0;
   // 发力档独立于倍率；期望返还按当前局倍率计
   const multiplier = opts.multiplier ?? 1;
   const alpha0Table = opts.alpha0Table;
 
-  const arms = await Promise.all(
-    POWER_LEVELS.map(async (power) => {
-      const [bandit, posterior] = await Promise.all([
-        tx.banditArm.findUnique({
-          where: { tenantId_machineId_power: { tenantId, machineId, power } },
-        }),
-        tx.posterior.findUnique({
-          where: { tenantId_machineId_power: { tenantId, machineId, power } },
-        }),
-      ]);
-      const counts = posterior?.counts ?? new Array<number>(HOLE_COUNT).fill(0);
-      const sampleN = counts.reduce((s, x) => s + x, 0);
-      const alpha0 =
-        alpha0Table?.[power] ??
-        (posterior ? DEFAULT_ALPHA0 : DEFAULT_ALPHA0);
-      const a = alphaVector(counts, alpha0);
-      const litMass = litHoles.reduce((s, h) => s + (a[h - 1] ?? 0), 0);
-      const totalMass = a.reduce((s, x) => s + x, 0);
-      const theta = totalMass === 0 ? 0 : litMass / totalMass;
-      return {
-        power,
-        counts,
-        sampleN,
-        litMass,
-        nonLitMass: Math.max(totalMass - litMass, 1e-9),
-        theta,
-        // BanditArm 的 α/β（M2 落库的命中计数）仅用于 calibration/backtest 独立校验，
-        // 不参与选档采样——采样用纯 Beta(litMass, nonLitMass)，避免重复计数同一命中事件。
-        banditAlpha: bandit?.alpha ?? 0,
-        banditBeta: bandit?.beta ?? 0,
-      };
-    }),
-  );
+  // 按 POWER_LEVELS 固定序组装，缺失档按空 counts（=先验）处理
+  const arms = POWER_LEVELS.map((power) => {
+    const counts =
+      armsInput.find((a) => a.power === power)?.counts ?? new Array<number>(HOLE_COUNT).fill(0);
+    const sampleN = counts.reduce((s, x) => s + x, 0);
+    const alpha0 = alpha0Table?.[power] ?? DEFAULT_ALPHA0;
+    const a = alphaVector(counts, alpha0);
+    const litMass = litHoles.reduce((s, h) => s + (a[h - 1] ?? 0), 0);
+    const totalMass = a.reduce((s, x) => s + x, 0);
+    const theta = totalMass === 0 ? 0 : litMass / totalMass;
+    return {
+      power,
+      counts,
+      sampleN,
+      litMass,
+      nonLitMass: Math.max(totalMass - litMass, 1e-9),
+      theta,
+    };
+  });
 
   const rng = mulberry32(hashSeed(`${machineId}:${litHoles.join(',')}`));
   const winCounts = new Array<number>(POWER_LEVELS.length).fill(0);
@@ -194,6 +186,29 @@ export async function recommend(
     armTheta: arms.map((a) => a.theta),
     sampleN: arms.reduce((s, a) => s + a.sampleN, 0),
   };
+}
+
+/**
+ * Thompson 采样推荐（落库版）。读三档 Posterior 组装 counts 后委托
+ * recommendFromCounts 采样——正式路径与回填共用同一份采样代码，行为严格一致。
+ * 每臂诱导 Beta(Σ_{h∈L}α_h, Σ_{h∉L}α_h)，K=2000 次采样统计最优频率。
+ */
+export async function recommend(
+  tx: PrismaTransaction,
+  machineId: string,
+  tenantId: string,
+  litHoles: number[],
+  opts: { totalBet?: number; multiplier?: number; alpha0Table?: Alpha0Table } = {},
+): Promise<RecommendResult> {
+  const armCounts: ArmCountsInput[] = await Promise.all(
+    POWER_LEVELS.map(async (power) => {
+      const posterior = await tx.posterior.findUnique({
+        where: { tenantId_machineId_power: { tenantId, machineId, power } },
+      });
+      return { power, counts: posterior?.counts ?? new Array<number>(HOLE_COUNT).fill(0) };
+    }),
+  );
+  return recommendFromCounts(machineId, litHoles, armCounts, opts);
 }
 
 

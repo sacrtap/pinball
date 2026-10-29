@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "worker": "tsx lib/queue/montecarlo-worker.ts",
+    "backfill:recommend": "tsx --env-file=.env scripts/backfill-recommend.ts",
     "prisma:seed": "prisma db seed",
     "postinstall": "prisma generate"
   },
