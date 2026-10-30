@@ -6,6 +6,10 @@
 --   psql -h 127.0.0.1 -U postgres -d pinball_dev -f prisma/sql/01-app-role.sql
 -- Docker 部署时由 postgres 容器 docker-entrypoint-initdb.d 自动执行。
 
+-- 必需扩展（citext 用于邮箱大小写不敏感，pgcrypto 用于 gen_random_uuid）
+CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pinball_app') THEN
@@ -16,7 +20,8 @@ $$;
 
 -- 表级读写权限（迁移建表后执行；此处幂等授权语句对后续新表同样适用，
 -- 每次 migrate deploy 后重跑本脚本即可）。
-GRANT CONNECT ON DATABASE pinball_dev TO pinball_app;
+-- 注意：使用 current_database() 而非硬编码库名，兼容 pinball_dev / pinball / pinball_test 等。
+GRANT CONNECT ON DATABASE current_database() TO pinball_app;
 GRANT USAGE ON SCHEMA public TO pinball_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO pinball_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO pinball_app;
@@ -38,7 +43,7 @@ BEGIN
 END
 $$;
 
-GRANT CONNECT ON DATABASE pinball_dev TO pinball_agg;
+GRANT CONNECT ON DATABASE current_database() TO pinball_agg;
 GRANT USAGE ON SCHEMA public TO pinball_agg;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO pinball_agg;
 GRANT INSERT, UPDATE ON "GlobalPrior" TO pinball_agg;
