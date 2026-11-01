@@ -111,7 +111,7 @@ test.describe('录入流', () => {
   });
 
   // 回归：自动前进 effect 曾让 step1「上一步」被立即弹回（用户报告：无法返回上一页）
-  test('step1 上一步 → 停留 step0 且亮灯保留，确定后再前进', async ({ page, request }) => {
+  test('step1 上一步 → 停留 step0 且亮灯保留，未选满也能继续', async ({ page, request }) => {
     const reg = await request.post('/api/test/register', { data: { email, password } });
     expect(reg.ok()).toBeTruthy();
     await page.goto('/login');
@@ -129,7 +129,7 @@ test.describe('录入流', () => {
     await page.click('button:has-text("开始新对局")');
     await expect(page).toHaveURL(/\/session\/.+\/play/, { timeout: 15_000 });
 
-    // step0：倍率 2× + 乱序选满 → 「确定」→ step1
+    // step0：倍率 2× + 乱序选满 5 个（达上限）→ 「确定」→ step1
     await page.click('button:has-text("2×")');
     for (const hole of [1, 3, 6, 11, 5]) {
       await page.click(`button[aria-label="亮灯 ${hole} 号洞"]`);
@@ -140,16 +140,17 @@ test.describe('录入流', () => {
     // step1 点「上一步」→ 必须停留 step0（曾因亮灯仍满被 effect 弹回）
     await page.click('button:has-text("上一步")');
     await expect(page.locator('button[aria-label="清空"]')).toHaveCount(0); // step1 控件已消失
-    await expect(page.locator('text=选择 5 个亮灯通道（已选 5/5）')).toBeVisible();
+    await expect(page.locator('text=最多选 5 个亮灯通道（已选 5/5）')).toBeVisible();
     await expect(page.locator('button[aria-label="亮灯 1 号洞"][aria-pressed="true"]')).toBeVisible();
     await expect(page.locator('button:has-text("2×")[aria-pressed="true"]')).toBeVisible();
 
-    // 取消一个亮灯 → 「确定」禁用（未选满不可前进）
-    await page.click('button[aria-label="亮灯 1 号洞"]');
-    await expect(page.locator('button:has-text("确定")')).toBeDisabled();
-    await page.click('button[aria-label="亮灯 1 号洞"]');
+    // 上限语义：选满后未选中的洞位显式禁用（保留可点击外观却静默忽略才是缺陷）
+    await expect(page.locator('button[aria-label^="亮灯 12 号洞"]')).toBeDisabled();
 
-    // 再点「确定」→ 回到 step1
+    // 取消一个亮灯 → 未选满仍可前进（数量区间 1..5，不是必须 5 个）
+    await page.click('button[aria-label="亮灯 1 号洞"]');
+    await expect(page.locator('button[aria-label^="亮灯 12 号洞"]')).toBeEnabled();
+    await expect(page.locator('button:has-text("确定")')).toBeEnabled();
     await page.click('button:has-text("确定")');
     await expect(page.locator('button[aria-label="清空"]')).toBeVisible({ timeout: 10_000 });
   });

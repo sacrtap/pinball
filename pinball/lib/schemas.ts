@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BASE_BET, HOLE_COUNT, litCountFor } from '@/lib/rules';
+import { BASE_BET, HOLE_COUNT, litHolesError } from '@/lib/rules';
 import type { Multiplier } from '@/lib/types';
 
 /** 机台 */
@@ -33,18 +33,11 @@ const RoundFieldsSchema = z.object({
   predictedHitProb: z.number().min(0).max(1).optional().nullable(),
 });
 
-/** 跨字段校验：亮灯数=倍率映射、亮灯不重复、投入下限 */
+/** 跨字段校验：亮灯数=倍率映射（必须量）、亮灯不重复、投入下限 */
 export const RoundInputSchema = RoundFieldsSchema.superRefine((v, ctx) => {
-  const expected = litCountFor(v.multiplier as Multiplier);
-  if (v.litHoles.length !== expected) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `倍率 ${v.multiplier} 需要 ${expected} 个亮灯通道，收到 ${v.litHoles.length}`,
-      path: ['litHoles'],
-    });
-  }
-  if (new Set(v.litHoles).size !== v.litHoles.length) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: '亮灯通道不可重复', path: ['litHoles'] });
+  const litError = litHolesError(v.multiplier as Multiplier, v.litHoles);
+  if (litError) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: litError, path: ['litHoles'] });
   }
   if (v.extraBet + v.baseBet < BASE_BET) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: '总投入不得低于基础投入', path: ['extraBet'] });

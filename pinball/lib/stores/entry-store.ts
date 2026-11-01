@@ -24,6 +24,7 @@ export interface EntryState {
   };
   setStep: (s: EntryStep) => void;
   setMultiplier: (m: Multiplier) => void;
+  /** max 为该倍率下的亮灯上限（1..max 都合法） */
   toggleLitHole: (hole: number, max: number) => void;
   setExtraBet: (n: number) => void;
   setPower: (p: PowerLevel) => void;
@@ -45,13 +46,20 @@ const INITIAL = {
 export const useEntryStore = create<EntryState>((set) => ({
   ...INITIAL,
   setStep: (step) => set({ step }),
-  setMultiplier: (multiplier) => set({ multiplier, litHoles: [] }),
+  setMultiplier: (multiplier) => set({ multiplier, litHoles: [], recommendation: null }),
+  /**
+   * 亮灯通道选择：`max` 是上限，不是必须量——该倍率下 1..max 个都合法。
+   * 已选中的可取消；未达上限时追加；达上限后忽略（UI 侧已把未选项禁用，不会静默）。
+   * 亮灯集合变化会作废已拉取的推荐，避免 step1 展示与当前选择不符的概率。
+   */
   toggleLitHole: (hole, max) =>
     set((s) => {
-      const has = s.litHoles.includes(hole);
-      if (has) return { litHoles: s.litHoles.filter((h) => h !== hole) };
-      if (s.litHoles.length >= max) return {}; // 达到亮灯数上限，忽略
-      return { litHoles: [...s.litHoles, hole] };
+      if (max <= 0) return {};
+      if (s.litHoles.includes(hole)) {
+        return { litHoles: s.litHoles.filter((h) => h !== hole), recommendation: null };
+      }
+      if (s.litHoles.length >= max) return {};
+      return { litHoles: [...s.litHoles, hole], recommendation: null };
     }),
   setExtraBet: (extraBet) => set({ extraBet }),
   setPower: (power) => set({ power }),
