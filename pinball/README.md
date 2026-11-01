@@ -109,12 +109,7 @@ docker compose exec app pnpm prisma migrate deploy
 docker compose exec app pnpm prisma db seed
 ```
 
-访问 <http://localhost:8477>，使用种子账号登录：
-
-```text
-邮箱：dev@pinball.local
-密码：dev-password-123
-```
+访问 <http://localhost:8477>，使用种子账号登录（账号与密码见 `prisma/seed.ts`）：
 
 compose 包含 5 个服务：
 
