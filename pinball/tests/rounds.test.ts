@@ -121,11 +121,15 @@ describe('录入流', () => {
     expect(computeCards(200)).toBe(5); // 上限 5
   });
 
-  it('schema：亮灯数≠倍率映射被拒', () => {
-    const bad = makeRound({ litHoles: [1, 2] }); // 2× 需 5 个
-    expect(RoundInputSchema.safeParse(bad).success).toBe(false);
-    const ok = makeRound();
-    expect(RoundInputSchema.safeParse(ok).success).toBe(true);
+  it('schema：亮灯数须在 1..倍率上限之间', () => {
+    // 2× 上限 5：超出上限被拒
+    expect(RoundInputSchema.safeParse(makeRound({ litHoles: [1, 2, 3, 4, 5, 6] })).success).toBe(false);
+    // 每个倍率至少 1 个
+    expect(RoundInputSchema.safeParse(makeRound({ litHoles: [] })).success).toBe(false);
+    // 未选满合法（上限不是必须量）
+    expect(RoundInputSchema.safeParse(makeRound({ litHoles: [1, 2] })).success).toBe(true);
+    // 选满合法
+    expect(RoundInputSchema.safeParse(makeRound()).success).toBe(true);
   });
 
   it('幂等：同 clientRequestId 两次提交只产 1 行', async () => {

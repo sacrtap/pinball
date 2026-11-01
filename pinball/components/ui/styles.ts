@@ -19,7 +19,7 @@ export const SELECTABLE_IDLE = 'border-[var(--border)] bg-[var(--surface)] text-
 /** 选中态（accent 填充） */
 export const SELECTABLE_ACTIVE = 'border-transparent bg-[var(--accent)] text-white';
 
-/** 禁用态附加类（配合 SELECTABLE_BASE 的 disabled: 使用） */
+/** 禁用态附加类（配合 SELECTABLE_BASE 的 disabled: 使用；数量达上限的未选项） */
 export const SELECTABLE_DISABLED = 'cursor-not-allowed opacity-40';
 
 /** 链接式按钮（<a> 伪装按钮，如导出链接）：与 TouchButton sm 视觉对齐 */

@@ -25,9 +25,9 @@ export async function POST(req: Request) {
   }
   const { machineId, multiplier, litHoles, totalBet } = parsed.data;
 
-  if (litHoles.length !== litCountFor(multiplier)) {
+  if (litHoles.length > litCountFor(multiplier)) {
     return NextResponse.json(
-      { error: `倍率 ${multiplier} 需要 ${litCountFor(multiplier)} 个亮灯通道` },
+      { error: `倍率 ${multiplier} 最多 ${litCountFor(multiplier)} 个亮灯通道` },
       { status: 400 },
     );
   }

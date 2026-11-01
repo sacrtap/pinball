@@ -80,3 +80,20 @@ export const DEFAULT_EXTRA_BET = 0;
 export function isValidHole(hole: number): boolean {
   return Number.isInteger(hole) && hole >= 1 && hole <= HOLE_COUNT;
 }
+
+/**
+ * 亮灯通道数量校验：合法返回 null，否则返回中文错误消息。
+ *
+ * 数量是区间 `[1, LIT_COUNT[multiplier]]`：每个倍率至少 1 个、最多 N 个，
+ * 未选满也合法（不必凑满）——上限不是「必须量」。录入 schema 与编辑接口共用。
+ */
+export function litHolesError(multiplier: Multiplier, litHoles: number[]): string | null {
+  const max = litCountFor(multiplier);
+  if (litHoles.length < 1) return '至少选择 1 个亮灯通道';
+  if (litHoles.length > max) {
+    return `倍率 ${multiplier} 最多 ${max} 个亮灯通道，收到 ${litHoles.length}`;
+  }
+  if (new Set(litHoles).size !== litHoles.length) return '亮灯通道不可重复';
+  if (!litHoles.every(isValidHole)) return `亮灯通道须为 1..${HOLE_COUNT} 的整数`;
+  return null;
+}

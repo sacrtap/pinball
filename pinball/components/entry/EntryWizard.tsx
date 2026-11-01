@@ -49,12 +49,14 @@ export function EntryWizard({
     : null;
   const { step, multiplier, litHoles, extraBet, power, landHole } = store;
 
+  // 亮灯上限由倍率决定；1..litMax 个都合法，未选满也能继续。
   const litMax = multiplier ? LIT_COUNT[multiplier] : 0;
 
-  // 亮灯选满 → 预拉发力推荐（≥20 局才有 Thompson；失败静默降级）。
+  // 推荐预取：选满时立即拉取；未满时进入 step1 再按需拉取。
   // 只预取不前进：前进由 step0「确定」按钮显式触发——自动前进曾让「上一步」被本 effect 立即弹回。
   useEffect(() => {
-    if (step !== 0 || !multiplier || litHoles.length !== litMax) return;
+    if (!multiplier || litHoles.length === 0 || step > 1) return;
+    if (step === 0 && litHoles.length !== litMax) return;
     if (store.recommendation) return;
     void fetch('/api/recommend', {
       method: 'POST',
@@ -140,7 +142,7 @@ export function EntryWizard({
           {multiplier && (
             <>
               <p className="text-sm text-[var(--muted)]">
-                选择 {litMax} 个亮灯通道（已选 {litHoles.length}/{litMax}）
+                最多选 {litMax} 个亮灯通道（已选 {litHoles.length}/{litMax}），选 1 个即可继续
                 {litHoles.length === litMax && ' · 已选满，取消已选可更换'}
               </p>
               <HoleBoard
@@ -231,7 +233,7 @@ export function EntryWizard({
         <TouchButton
           block
           onClick={() => store.setStep(1)}
-          disabled={!multiplier || litHoles.length !== litMax}
+          disabled={!multiplier || litHoles.length === 0}
         >
           确定
         </TouchButton>

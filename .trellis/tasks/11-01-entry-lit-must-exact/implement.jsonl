@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "录入步选择控件的组件与交互约定"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "entry-store 契约变更需遵守状态管理约定"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "前端选择数量语义与后端校验的跨层一致性"}
+{"file": "docs/spec/PRD-弹珠机预测系统.md", "reason": "倍率→亮灯数映射的业务来源"}

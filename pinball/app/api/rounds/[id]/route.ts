@@ -3,7 +3,8 @@ import { withTenant } from '@/lib/db/tenant';
 import * as repo from '@/lib/db/repo';
 import { getCurrentTenantId } from '@/lib/auth/session';
 import { RoundPatchSchema } from '@/lib/schemas';
-import { computeCards, computeReward, isHit } from '@/lib/rules';
+import { computeCards, computeReward, isHit, litHolesError } from '@/lib/rules';
+import type { Multiplier } from '@/lib/types';
 import { revertPosterior, updatePosterior } from '@/lib/predict/posterior';
 import { revertBanditArm, updateBanditArm } from '@/lib/predict/bandit';
 import { logAudit } from '@/lib/audit';
@@ -24,11 +25,21 @@ export async function PATCH(request: Request, ctx: Ctx) {
   }
   const patch = parsed.data;
 
-  const round = await withTenant(tenantId, async (tx) => {
+  const result = await withTenant(tenantId, async (tx) => {
     const old = await repo.getRound(tx, id);
     if (!old) throw new Error('ROUND_NOT_FOUND');
 
-    // ① 回滚旧计数与统计
+    // ① 合并最终值（缺省沿用旧值），并校验亮灯必须量。
+    //    位置必须早于任何写操作：先回滚计数再失败会留下半截状态。
+    //    RoundPatchSchema 是 partial，跨字段校验只能在这里做。
+    const multiplier = patch.multiplier ?? old.multiplier;
+    const litHoles = patch.litHoles ?? old.litHoles;
+    const litError = litHolesError(multiplier as Multiplier, litHoles);
+    if (litError) {
+      return { ok: false as const, issues: [{ path: ['litHoles'], message: litError }] };
+    }
+
+    // ② 回滚旧计数与统计
     await revertPosterior(tx, old.machineId, tenantId, old.power as never, old.landHole);
     await revertBanditArm(tx, old.machineId, tenantId, old.power as never, old.hit);
     await tx.session.update({
@@ -41,9 +52,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
       },
     });
 
-    // ② 应用新值（缺省沿用旧值）
-    const multiplier = patch.multiplier ?? old.multiplier;
-    const litHoles = patch.litHoles ?? old.litHoles;
+    // ③ 应用新值
     const baseBet = patch.baseBet ?? old.baseBet;
     const extraBet = patch.extraBet ?? old.extraBet;
     const power = patch.power ?? old.power;
@@ -53,7 +62,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
     const reward = computeReward(totalBet, multiplier as never, hit);
     const cardIssued = computeCards(reward);
 
-    // ③ 正向更新
+    // ④ 正向更新
     await updatePosterior(tx, old.machineId, tenantId, power as never, landHole);
     await updateBanditArm(tx, old.machineId, tenantId, power as never, hit);
     const updated = await repo.updateRound(tx, id, {
@@ -73,7 +82,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
       modelVersion: old.modelVersion + 1,
     });
 
-    // ④ session 统计正向
+    // ⑤ session 统计正向
     await tx.session.update({
       where: { id: old.sessionId },
       data: {
@@ -86,10 +95,14 @@ export async function PATCH(request: Request, ctx: Ctx) {
 
     await logAudit(tx, tenantId, null, 'round-edit', { roundId: id });
 
-    return updated;
+    return { ok: true as const, round: updated };
   });
 
-  return NextResponse.json({ round });
+  if (!result.ok) {
+    return NextResponse.json({ error: 'INVALID_INPUT', issues: result.issues }, { status: 400 });
+  }
+
+  return NextResponse.json({ round: result.round });
 }
 
 /**
