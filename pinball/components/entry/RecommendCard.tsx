@@ -1,6 +1,6 @@
 'use client';
 
-import { POWER_LEVELS } from '@/lib/rules';
+import { POWER_LEVELS, suggestTotalBet } from '@/lib/rules';
 import type { PowerLevel } from '@/lib/types';
 
 const POWER_LABEL: Record<string, string> = { low: '小力', mid: '中力', high: '大力' };
@@ -44,10 +44,15 @@ export function RecommendCard({
       aria-label="发力推荐"
       className="space-y-1.5 rounded-2xl border border-[var(--accent)]/50 bg-[var(--surface)] p-2"
     >
-      {/* 标题行：推荐标题 + 推荐档位 + mode 同行，压缩高度 */}
+      {/* 标题行：推荐标题 + 建议总珠数 + 推荐档位 + mode 同行，压缩高度 */}
       <div className="flex items-center justify-between">
         <div className="flex items-baseline gap-1.5">
           <h3 className="text-xs font-medium text-[var(--muted)]">发力推荐</h3>
+          {/* 建议总珠数：θ̂×倍率 正期望顶格 60、非正保底 5（lib/rules.ts 单一来源） */}
+          <span className="text-[10px] text-[var(--muted)]">建议</span>
+          <span className="text-base font-bold tabular-nums text-[var(--fg)]">
+            {suggestTotalBet(hitProb, multiplier)} 珠
+          </span>
           {data.thompsonPower && (
             <span className="text-base font-bold text-[var(--accent)]">
               {POWER_LABEL[data.thompsonPower] ?? data.thompsonPower}

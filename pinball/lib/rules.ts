@@ -82,6 +82,15 @@ export function isValidHole(hole: number): boolean {
 }
 
 /**
+ * 建议总珠数：单局期望净收益 = 总珠数 × (θ̂ × 倍率 − 1)，对投入线性无凹性，
+ * 故只需二选一——θ̂ × 倍率 > 1（正期望）顶格加注，否则保底基础投入。
+ * θ̂ 为亮灯联合命中概率（统计估计，历史不构成未来保证）。
+ */
+export function suggestTotalBet(hitProb: number, multiplier: number): number {
+  return hitProb * multiplier > 1 ? BASE_BET + MAX_EXTRA_BET : BASE_BET;
+}
+
+/**
  * 亮灯通道数量校验：合法返回 null，否则返回中文错误消息。
  *
  * 数量是区间 `[1, LIT_COUNT[multiplier]]`：每个倍率至少 1 个、最多 N 个，
