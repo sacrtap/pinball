@@ -33,8 +33,8 @@ export const CARD_MAX = 5;
 /** 发力档位 */
 export const POWER_LEVELS = ['low', 'mid', 'high'] as const;
 
-/** 加注上限（默认 0，可加注至基础投入的 2 倍） */
-export const MAX_EXTRA_BET = BASE_BET * 2;
+/** 加注上限：本局总珠数上限 60（基础 5 + 加注 55） */
+export const MAX_EXTRA_BET = 55;
 
 /** L3 Thompson 采样的 degraded 判定阈值 */
 export const DEGRADED_THRESHOLD = 0.55;

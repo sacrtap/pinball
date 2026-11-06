@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BASE_BET, HOLE_COUNT, litHolesError } from '@/lib/rules';
+import { BASE_BET, HOLE_COUNT, MAX_EXTRA_BET, litHolesError } from '@/lib/rules';
 import type { Multiplier } from '@/lib/types';
 
 /** 机台 */
@@ -33,7 +33,7 @@ const RoundFieldsSchema = z.object({
   predictedHitProb: z.number().min(0).max(1).optional().nullable(),
 });
 
-/** 跨字段校验：亮灯数=倍率映射（必须量）、亮灯不重复、投入下限 */
+/** 跨字段校验：亮灯数=倍率映射（必须量）、亮灯不重复、投入上下限 */
 export const RoundInputSchema = RoundFieldsSchema.superRefine((v, ctx) => {
   const litError = litHolesError(v.multiplier as Multiplier, v.litHoles);
   if (litError) {
@@ -41,6 +41,9 @@ export const RoundInputSchema = RoundFieldsSchema.superRefine((v, ctx) => {
   }
   if (v.extraBet + v.baseBet < BASE_BET) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: '总投入不得低于基础投入', path: ['extraBet'] });
+  }
+  if (v.extraBet + v.baseBet > BASE_BET + MAX_EXTRA_BET) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: '总投入不得高于总珠数上限', path: ['extraBet'] });
   }
 });
 
